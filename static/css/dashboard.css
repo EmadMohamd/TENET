@@ -1,0 +1,140 @@
+/* ================= GLOBAL ================= */
+body {
+    background: linear-gradient(135deg,#0f172a,#1e293b);
+    color: #e5e7eb;
+    font-family: Segoe UI, Arial;
+}
+
+/* ================= SIDEBAR ================= */
+.sidebar {
+    height: 100vh;
+    width: 220px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    background-color: #020617 !important;
+    border-right: 1px solid #334155;
+    padding-top: 20px;
+}
+.sidebar h4 {
+    color: #cbd5f5;
+    text-align: center;
+    margin-bottom: 25px;
+}
+.sidebar a {
+    display: block;
+    padding: 12px 20px;
+    color: #cbd5f5 !important;
+    text-decoration: none;
+    font-size: 15px;
+}
+.sidebar a:hover {
+    background-color: #1e293b !important;
+}
+
+/* ================= MAIN ================= */
+.main {
+    margin-left: 220px;
+    padding: 30px;
+}
+
+/* ================= CARDS ================= */
+.card {
+    background-color: rgba(30,41,59,0.85) !important;
+    border: 1px solid rgba(148,163,184,0.15) !important;
+    backdrop-filter: blur(6px);
+    border-radius: 12px;
+}
+
+/* ================= TABLE ================= */
+.table {
+    color: #e5e7eb !important;
+    border-color: #475569 !important;
+}
+.table thead tr {
+    background-color: #020617 !important;
+}
+.table thead th {
+    color: #e5e7eb !important;
+    background-color: #020617 !important;
+}
+.table tbody tr,
+.table tbody td {
+    background-color: #334155 !important;
+    color: #e5e7eb !important;
+}
+.table-hover tbody tr:hover,
+.table-hover tbody tr:hover td {
+    background-color: #475569 !important;
+}
+
+/* ================= COMPLETED TASK ================= */
+.task-completed {
+    background-color: #1f3b2c !important;
+}
+.task-completed td {
+    background-color: #1f3b2c !important;
+}
+
+/* ================= INPUTS ================= */
+.form-control,
+.form-select {
+    background-color: #1e293b !important;
+    border: 1px solid #475569 !important;
+    color: #e5e7eb !important;
+}
+.form-control::placeholder,
+.form-select option {
+    color: #94a3b8 !important;
+}
+.form-control:focus,
+.form-select:focus {
+    background-color: #1e293b !important;
+    border-color: #60a5fa !important;
+    color: #e5e7eb !important;
+    box-shadow: none;
+}
+
+/* ================= BUTTONS ================= */
+.btn-primary {
+    background-color: #2563eb !important;
+    border: none !important;
+}
+.btn-primary:hover {
+    background-color: #1d4ed8 !important;
+}
+
+/* ================= FILE LIST ================= */
+.list-group-item {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    color: #e5e7eb !important;
+}
+.file-link {
+    color: #60a5fa !important;
+    text-decoration: none;
+}
+.file-link:hover {
+    text-decoration: underline !important;
+}
+
+/* ================= BADGES ================= */
+.badge {
+    padding: 6px 10px !important;
+    font-weight: 500 !important;
+}
+.status-online {
+    background-color: #22c55e !important;
+}
+.status-offline {
+    background-color: #ef4444 !important;
+}
+.section-title {
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+    color: #cbd5f5 !important;
+}
+.disabled-link {
+    pointer-events: none;
+    opacity: 0.5;
+}

