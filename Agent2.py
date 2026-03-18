@@ -6,7 +6,6 @@ import json
 import socket
 import getpass
 import platform
-import os
 from cryptography.fernet import Fernet
 
 

@@ -5,13 +5,12 @@ from flask import Flask, request, jsonify, render_template, session, redirect, u
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
 from datetime import datetime, timezone
 app = Flask(__name__)
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
-print("Loaded API KEY:", API_KEY)
+
 
 # --- Configuration ---
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
