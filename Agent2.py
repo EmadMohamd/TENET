@@ -15,8 +15,8 @@ RESULT_ENDPOINT = "/result"
 UPLOAD_ENDPOINT = "/upload"
 LOGIN_ENDPOINT = "/login"
 
-username = "agent1"
-password = "pass1"
+username = "agent2"
+password = "pass2"
 
 SLEEP_MIN = 5
 SLEEP_MAX = 10
@@ -54,11 +54,27 @@ def get_system_info():
 
 
 def login():
-    payload = {"username": username, "password": password , "agent_id": AGENT_ID}
-    response = requests.post(SERVER_URL + LOGIN_ENDPOINT,json=payload)
-    if response.status_code == 200:
-        return True
-    else:
+    payload = {
+        "username": username,
+        "password": password,
+        "agent_id": AGENT_ID
+    }
+
+    try:
+        response = requests.post(
+            SERVER_URL + LOGIN_ENDPOINT,
+            json=payload,
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("status") == "agent_logged_in":
+                return True
+
+        return False
+
+    except Exception:
         return False
 
 
