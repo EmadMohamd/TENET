@@ -69,9 +69,29 @@ async function updateTasks() {
 /* ================= DELETE TASK ================= */
 function deleteTask(uuid) {
     if (!confirm("Delete task?")) return;
-    fetch("/delete-task/" + uuid, { method: "POST" }).then(() => updateTasks());
-}
 
+    fetch("/tasks/" + uuid, {
+        method: "DELETE",
+        headers: {
+            "Authorization": "Bearer " + API_KEY,
+            "Content-Type": "application/json"
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === "deleted") {
+            // remove the row from the table
+            const row = document.querySelector(`#tasksBody tr td:last-child button[onclick*="${uuid}"]`).closest("tr");
+            if (row) row.remove();
+        } else {
+            alert("Failed to delete task: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Network or server error");
+    });
+}
 /* ================= SEND TASK ================= */
 document.getElementById("taskForm").addEventListener("submit", async (e) => {
     e.preventDefault();

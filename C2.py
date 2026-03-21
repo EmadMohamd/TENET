@@ -450,7 +450,6 @@ def tasks_list():
         return redirect(url_for("login"))
 
     db = get_db()
-
     rows = db.execute("""
         SELECT uuid, agent_id, task_json, output
         FROM tasks
@@ -465,7 +464,19 @@ def tasks_list():
             "output": t["output"]
         }
 
-    return render_template('tasks.html', tasks=tasks_str)
+    # Pass API_KEY to template
+    return render_template('tasks.html', tasks=tasks_str, api_key=API_KEY)
+
+@app.route('/tasks/<task_uuid>', methods=['DELETE'])
+def delete_task(task_uuid):
+    auth_header = request.headers.get("Authorization")
+    if auth_header != f"Bearer {API_KEY}":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    db = get_db()
+    db.execute("DELETE FROM tasks WHERE uuid = ?", (task_uuid,))
+    db.commit()
+    return jsonify({"status": "deleted"})
 
 # --- Main ---
 if __name__ == "__main__":
