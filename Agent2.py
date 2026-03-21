@@ -1,6 +1,5 @@
 import time
 import random
-import requests
 import subprocess
 import json
 import socket
@@ -8,8 +7,7 @@ import getpass
 import platform
 from cryptography.fernet import Fernet
 import importlib.util
-import sys
-import os
+
 
 
 SERVER_URL = "http://localhost:5000"
