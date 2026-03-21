@@ -16,8 +16,8 @@ RESULT_ENDPOINT = "/result"
 UPLOAD_ENDPOINT = "/upload"
 LOGIN_ENDPOINT = "/login"
 
-username = "agent2"
-password = "pass2"
+username = "agent1"
+password = "pass1"
 
 SLEEP_MIN = 5
 SLEEP_MAX = 10
