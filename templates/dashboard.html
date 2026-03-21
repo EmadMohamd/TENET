@@ -14,100 +14,102 @@
     <a href="/agents">Live Agents</a>
     <a href="/tasks">Tasks</a>
     <a href="/uploads">Files</a>
+    <a href="/plugins">Plugins</a> <!-- Added plugins link -->
     <a href="{{ url_for('logout') }}">Logout</a>
 </div>
 
 <!-- ================= MAIN ================= -->
 <div class="main">
 
-<!-- ================= LIVE AGENTS ================= -->
-<div id="live-agents" class="card mb-4">
-<div class="card-body">
-<div class="section-title mb-3">Live Agents</div>
-<table class="table table-hover">
-<thead>
-<tr>
-<th>Status</th>
-<th>ID</th>
-<th>Hostname</th>
-<th>User</th>
-<th>OS</th>
-<th>IP</th>
-<th>Last Seen</th>
-</tr>
-</thead>
-<tbody id="agentsBody"></tbody>
-</table>
-</div>
+    <!-- ================= LIVE AGENTS ================= -->
+    <div id="live-agents" class="card mb-4">
+        <div class="card-body">
+            <div class="section-title mb-3">Live Agents</div>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>ID</th>
+                        <th>Hostname</th>
+                        <th>User</th>
+                        <th>OS</th>
+                        <th>IP</th>
+                        <th>Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody id="agentsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ================= SEND TASK ================= -->
+    <div id="send-task" class="card mb-4">
+        <div class="card-body">
+            <div class="section-title mb-3">Send Task</div>
+            <form id="taskForm">
+                <div class="row g-2">
+                    <div class="col-md-2">
+                        <input class="form-control" id="agentId" placeholder="Agent ID" required>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="taskType" required>
+                            <option value="">Task Type</option>
+                            <option value="shell">Shell</option>
+                            <option value="download">Download</option>
+                            <option value="upload">Upload</option>
+                            <option value="sleep">Sleep</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input class="form-control" id="taskCommand" placeholder="Command / URL / Path / Min">
+                    </div>
+                    <div class="col-md-3">
+                        <input class="form-control" id="taskExtra" placeholder="Save as / Max">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100">Send</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= TASKS ================= -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="section-title mb-3">Tasks</div>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Agent</th>
+                        <th>Task</th>
+                        <th>Output</th>
+                        <th>UUID</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="tasksBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ================= UPLOADED FILES ================= -->
+    <div id="uploaded-files" class="card mb-4">
+        <div class="card-body">
+            <div class="section-title mb-3">Uploaded Files</div>
+            <ul class="list-group list-group-flush">
+                {% for file in files %}
+                <li class="list-group-item">
+                    <a href="/uploads/{{ file }}" class="file-link" target="_blank">{{ file }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
 </div>
 
-<!-- ================= SEND TASK ================= -->
-<div id="send-task" class="card mb-4">
-<div class="card-body">
-<div class="section-title mb-3">Send Task</div>
-<form id="taskForm">
-<div class="row g-2">
-<div class="col-md-2">
-<input class="form-control" id="agentId" placeholder="Agent ID" required>
-</div>
-<div class="col-md-2">
-<select class="form-select" id="taskType" required>
-<option value="">Task Type</option>
-<option value="shell">Shell</option>
-<option value="download">Download</option>
-<option value="upload">Upload</option>
-<option value="sleep">Sleep</option>
-</select>
-</div>
-<div class="col-md-3">
-<input class="form-control" id="taskCommand" placeholder="Command / URL / Path / Min">
-</div>
-<div class="col-md-3">
-<input class="form-control" id="taskExtra" placeholder="Save as / Max">
-</div>
-<div class="col-md-2">
-<button class="btn btn-primary w-100">Send</button>
-</div>
-</div>
-</form>
-</div>
-</div>
-
-<!-- ================= TASKS ================= -->
-<div class="card mb-4">
-<div class="card-body">
-<div class="section-title mb-3">Tasks</div>
-<table class="table table-hover">
-<thead>
-<tr>
-<th>Status</th>
-<th>Agent</th>
-<th>Task</th>
-<th>Output</th>
-<th>UUID</th>
-<th></th>
-</tr>
-</thead>
-<tbody id="tasksBody"></tbody>
-</table>
-</div>
-</div>
-
-<!-- ================= FILES ================= -->
-<div id="uploaded-files" class="card mb-4">
-<div class="card-body">
-<div class="section-title mb-3">Uploaded Files</div>
-<ul class="list-group list-group-flush">
-{% for file in files %}
-<li class="list-group-item">
-<a href="/uploads/{{ file }}" class="file-link" target="_blank">{{ file }}</a>
-</li>
-{% endfor %}
-</ul>
-</div>
-</div>
-
-</div>
 <script>
     window.API_KEY = "{{ api_key }}";
 </script>

