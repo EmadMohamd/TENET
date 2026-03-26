@@ -5,9 +5,11 @@ from flask import Flask, request, jsonify, render_template, session, redirect, u
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from datetime import datetime, timezone
+from datetime import datetime, timezone ,timedelta
 import sqlite3
 from flask import g
+import secrets
+from functools import wraps
 
 
 app = Flask(__name__)
@@ -309,52 +311,110 @@ def run_plugin():
 # --- Login / Logout ---
 @app.route("/login", methods=["GET", "POST"])
 def login():
-
     db = get_db()
+    db.execute("DELETE FROM tokens WHERE expiry < ?", (datetime.now(timezone.utc).isoformat(),))
+    db.commit()
 
     # -------------------------
-    # 1. Agent Login (JSON)
-    # -------------------------
-    if request.method == "POST" and request.is_json:
-        data = request.get_json(silent=True) or {}
-
-        if "agent_id" in data:
-            username = data.get("username")
-            password = data.get("password")
-
-            # Check credentials from SQLite
-            row = db.execute(
-                "SELECT password FROM users WHERE username = ?",
-                (username,)
-            ).fetchone()
-
-            if row and row["password"] == password:
-                return jsonify({"status": "agent_logged_in"}), 200
-
-            return jsonify({"error": "Unauthorized"}), 401
-
-    # -------------------------
-    # 2. Dashboard Login (HTML Form)
+    # HANDLE POST (BOTH JSON + FORM)
     # -------------------------
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
 
+        # Detect input type
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            username = data.get("username")
+            password = data.get("password")
+            agent_id = data.get("agent_id")
+            is_api = True
+        else:
+            username = request.form.get("username")
+            password = request.form.get("password")
+            agent_id = None
+            is_api = False
+
+        # -------------------------
+        # Validate user
+        # -------------------------
         row = db.execute(
-            "SELECT password FROM users WHERE username = ?",
+            "SELECT password, role FROM users WHERE username = ?",
             (username,)
         ).fetchone()
 
-        if row and row["password"] == password:
+        if not row or row["password"] != password:
+            if is_api:
+                return jsonify({"error": "Unauthorized"}), 401
+            return render_template("login.html", error="Invalid credentials")
+
+        role = row["role"]
+
+        # -------------------------
+        # ADMIN (Dashboard Login)
+        # -------------------------
+        if not is_api:
+            if role != "admin":
+                return render_template("login.html", error="Access denied")
+
             session["username"] = username
+            session["role"] = role
+
             return redirect(url_for("dashboard"))
 
-        return render_template("login.html", error="Invalid credentials")
+        # -------------------------
+        # API LOGIN (Agent or Admin API)
+        # -------------------------
+
+        token = secrets.token_hex(32)
+        expiry = datetime.utcnow() + timedelta(days=7)
+
+        # If agent_id provided → treat as agent
+        if agent_id:
+            db.execute("DELETE FROM tokens WHERE agent_id = ?", (agent_id,))
+            agent = db.execute(
+                "SELECT id FROM agents WHERE id = ?",
+                (agent_id,)
+            ).fetchone()
+
+            if not agent:
+                db.execute(
+                    """INSERT INTO agents (id, hostname, user, os, ip, last_seen)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (
+                        agent_id,
+                        data.get("hostname"),
+                        data.get("user"),
+                        data.get("os"),
+                        request.remote_addr,
+                        datetime.utcnow().isoformat()
+                    )
+                )
+            else:
+                db.execute(
+                    "UPDATE agents SET last_seen = ?, ip = ? WHERE id = ?",
+                    (datetime.utcnow().isoformat(), request.remote_addr, agent_id)
+                )
+
+        # Store token with role awareness
+        db.execute(
+            "INSERT INTO tokens (token, agent_id, expiry, username) VALUES (?, ?, ?, ?)",
+            (token, agent_id, expiry.isoformat(), username)
+        )
+
+
+        db.commit()
+
+        return jsonify({
+            "status": "ok",
+            "token": token,
+            "role": role,
+            "expires": expiry.isoformat()
+        }), 200
 
     # -------------------------
-    # 3. GET request → show login page
+    # GET → login page
     # -------------------------
     return render_template("login.html")
+
 
 
 
@@ -363,6 +423,42 @@ def logout():
     session.pop("username", None)
     return redirect(url_for("login"))
 
+
+def require_token(role=None):  # ✅ accepts role
+    def wrapper(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            token = request.headers.get("TOKEN")
+
+            if not token:
+                return jsonify({"error": "Missing token"}), 401
+
+            db = get_db()
+
+            row = db.execute("""
+                SELECT t.agent_id, t.expiry, u.role
+                FROM tokens t
+                JOIN users u ON t.username = u.username
+                WHERE t.token = ?
+            """, (token,)).fetchone()
+
+            if not row:
+                return jsonify({"error": "Invalid token"}), 403
+
+            if datetime.fromisoformat(row["expiry"]) < datetime.utcnow():
+                return jsonify({"error": "Token expired"}), 403
+
+            # ✅ Role enforcement
+            if role and row["role"] != role:
+                return jsonify({"error": "Forbidden"}), 403
+
+            request.agent_id = row["agent_id"]
+            request.role = row["role"]
+
+            return f(*args, **kwargs)
+
+        return decorated
+    return wrapper
 # --- Dashboard ---
 
 
