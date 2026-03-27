@@ -62,6 +62,50 @@ def close_db(exception):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+    if exception:
+        app.logger.error(f"Context torn down due to error: {exception}")
+
+def require_token(role=None):  # ✅ accepts role
+    def wrapper(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            # ✅ If role is admin, skip token check entirely
+            if role == "admin":
+                request.agent_id = None
+                request.role = "admin"
+                return f(*args, **kwargs)
+
+            token = request.headers.get("TOKEN")
+
+            if not token:
+                return jsonify({"error": "Missing token"}), 401
+
+            db = get_db()
+
+            row = db.execute("""
+                SELECT t.agent_id, t.expiry, u.role
+                FROM tokens t
+                JOIN users u ON t.username = u.username
+                WHERE t.token = ?
+            """, (token,)).fetchone()
+
+            if not row:
+                return jsonify({"error": "Invalid token"}), 403
+
+            if datetime.fromisoformat(row["expiry"]) < datetime.utcnow():
+                return jsonify({"error": "Token expired"}), 403
+
+            # ✅ Role enforcement
+            if role and row["role"] != role:
+                return jsonify({"error": "Forbidden"}), 403
+
+            request.agent_id = row["agent_id"]
+            request.role = row["role"]
+
+            return f(*args, **kwargs)
+
+        return decorated
+    return wrapper
 
 
 # --- Agent beacon endpoint ---
@@ -110,6 +154,7 @@ def beacon():
 AGENT_ONLINE_TIMEOUT = 30  # seconds
 
 @app.route("/agents-data")
+@require_token(role="admin")
 def agents_data():
     now = datetime.now(timezone.utc)
 
@@ -141,6 +186,7 @@ def agents_data():
 
 # --- Agents page ---
 @app.route('/agents/')
+@require_token(role="admin")
 def agents_list():
     if "username" not in session:
         return redirect(url_for("login"))
@@ -177,6 +223,7 @@ def agents_list():
 
 # --- Agent detail page ---
 @app.route('/agents/<agent_id>')
+@require_token(role="admin")
 def agent_detail(agent_id):
     if "username" not in session:
         return redirect(url_for("login"))
@@ -222,6 +269,7 @@ def result():
 
 # --- Add a task ---
 @app.route('/task', methods=['POST'])
+@require_token(role="admin")
 def add_task():
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {API_KEY}":
@@ -257,12 +305,14 @@ def upload():
     return f'[+] File {file.filename} successfully uploaded', 200
 
 @app.route('/uploads/<filename>')
+@require_token(role="admin")
 def uploaded_file(filename):
     if "username" not in session:
         return redirect(url_for("login"))
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/uploads/')
+@require_token(role="admin")
 def uploads_list():
     if "username" not in session:
         return redirect(url_for("login"))
@@ -270,6 +320,7 @@ def uploads_list():
     return render_template("uploads.html", files=files)
 
 @app.route('/plugins/')
+@require_token(role="admin")
 def plugins_list():
     if "username" not in session:
         return redirect(url_for("login"))
@@ -278,6 +329,7 @@ def plugins_list():
 
 
 @app.route("/plugins/<filename>")
+@require_token(role="admin")
 def serve_plugin(filename):
     # Only allow .py files
     if not filename.endswith(".py"):
@@ -423,46 +475,11 @@ def logout():
     session.pop("username", None)
     return redirect(url_for("login"))
 
-
-def require_token(role=None):  # ✅ accepts role
-    def wrapper(f):
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            token = request.headers.get("TOKEN")
-
-            if not token:
-                return jsonify({"error": "Missing token"}), 401
-
-            db = get_db()
-
-            row = db.execute("""
-                SELECT t.agent_id, t.expiry, u.role
-                FROM tokens t
-                JOIN users u ON t.username = u.username
-                WHERE t.token = ?
-            """, (token,)).fetchone()
-
-            if not row:
-                return jsonify({"error": "Invalid token"}), 403
-
-            if datetime.fromisoformat(row["expiry"]) < datetime.utcnow():
-                return jsonify({"error": "Token expired"}), 403
-
-            # ✅ Role enforcement
-            if role and row["role"] != role:
-                return jsonify({"error": "Forbidden"}), 403
-
-            request.agent_id = row["agent_id"]
-            request.role = row["role"]
-
-            return f(*args, **kwargs)
-
-        return decorated
-    return wrapper
 # --- Dashboard ---
 
 
 @app.route("/dashboard")
+@require_token(role="admin")
 def dashboard():
     if "username" not in session:
         return redirect(url_for("login"))
@@ -518,6 +535,7 @@ def dashboard():
     )
 # --- Tasks endpoints ---
 @app.route("/tasks-data")
+@require_token(role="admin")
 def tasks_data():
     if "username" not in session:
         return jsonify({"error": "Unauthorized"}), 401
@@ -541,6 +559,7 @@ def tasks_data():
     return jsonify(tasks_dict)
 
 @app.route('/tasks/')
+@require_token(role="admin")
 def tasks_list():
     if "username" not in session:
         return redirect(url_for("login"))
@@ -564,6 +583,7 @@ def tasks_list():
     return render_template('tasks.html', tasks=tasks_str, api_key=API_KEY)
 
 @app.route('/tasks/<task_uuid>', methods=['DELETE'])
+@require_token(role="admin")
 def delete_task(task_uuid):
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {API_KEY}":
