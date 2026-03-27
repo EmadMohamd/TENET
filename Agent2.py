@@ -157,6 +157,7 @@ def execute_task(task, task_uuid):
         SLEEP_MAX = task.get("max", SLEEP_MAX)
 
         print(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds")
+        post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds", task_uuid)
 
 
 def execute_shell(command, task_uuid):
