@@ -10,19 +10,58 @@ import sqlite3
 from flask import g
 import secrets
 from functools import wraps
+import logging
 import random
 
 
 app = Flask(__name__)
 load_dotenv()
 
-API_KEY = os.getenv("API_KEY")
-DATABASE = "c2.db"
+import logging
+import sys
+from flask import Flask
+
+app = Flask(__name__)
+
+# Configure Flaks terminal colors Correctly
+G = "\033[92m"  # Green (2xx)
+B = "\033[94m"  # Blue (3xx)
+R = "\033[91m"  # Red (4xx & 5xx)
+W = "\033[0m"  # White/Reset
+
+
+class StatusFormatter(logging.Formatter):
+    def format(self, record):
+        msg = super().format(record)
+
+        # Color logic based on status code patterns
+        if " 200 " in msg or " 201 " in msg:
+            return f"{G}{msg}{W}"
+        elif any(code in msg for code in [" 301 ", " 302 ", " 304 "]):
+            return f"{B}{msg}{W}"
+        elif any(err in msg for err in [" 400 ", " 404 ", " 500 ", " 503 "]):
+            return f"{R}{msg}{W}"
+
+        return msg
+
+
+# Configure the Werkzeug logger
+handler = logging.StreamHandler(sys.stdout)  # Redirects stderr to stdout
+handler.setFormatter(StatusFormatter())
+
+werk_log = logging.getLogger('werkzeug')
+werk_log.setLevel(logging.INFO)
+werk_log.handlers = [handler]
+werk_log.propagate = False
 
 
 # --- Configuration ---
+API_KEY = os.getenv("API_KEY")
+DATABASE = "c2.db"
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
 cipher = Fernet(SECRET_KEY)
+
+#Folders & Directories
 UPLOAD_FOLDER = 'upload'
 PLUGINS_DIR = "./plugins"
 os.makedirs(PLUGINS_DIR, exist_ok=True)
@@ -30,18 +69,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = SECRET_KEY
 
-# --- Users ---
-#users = {"admin": "password123"}
-agents_creds = {"agent1": "pass1"}
-
-
-# --- Tasks dictionary keyed by UUID ---
-#tasks = {
-#    uuid.uuid4(): {"agent_id": "1", "task": {"type": "shell", "command": "whoami"}, "output": None}
-#}
-
-# --- Live Agents dictionary ---
-#agents = {}  # {agent_id: {'hostname':..., 'user':..., 'os':..., 'ip':..., 'last_seen': datetime}}
 
 # --- Encryption functions ---
 def encrypt_data(data):
@@ -66,6 +93,7 @@ def close_db(exception):
     if exception:
         app.logger.error(f"Context torn down due to error: {exception}")
 
+#Token Handling
 def require_token(role=None):  # ✅ accepts role
     def wrapper(f):
         @wraps(f)
@@ -249,14 +277,14 @@ def agent_detail(agent_id):
 
     return render_template('agent_detail.html', agent_id=agent_id, tasks=task_rows)
 
-#admin create a new instance of the agent
+#Agent Creation Via API
 @app.route('/agent-create', methods=['POST'])
-#@require_token(role="admin")
+@require_token(role="admin")
 def agent_create():
     username = request.json.get("username")
     password = request.json.get("password")
-    role = request.json.get("role")
-    numb = random.randint(1, 100)
+    ID_Number = request.json.get("id")
+
     db = get_db()
     existing_username = db.execute(
         "SELECT 1 FROM USERS WHERE username = ?",
@@ -264,27 +292,28 @@ def agent_create():
     ).fetchone()
     existing_agentID = db.execute(
         "SELECT 1 FROM AGENTS WHERE ID = ?",
-        (numb,)
+        (ID_Number,)
     ).fetchone()
-    if existing_username:
-        return {"error": "Username already exists"}, 400
     if existing_agentID:
         return {"error": "AgentID already exists"}, 400
+    if existing_username:
+        return {"error": "Username already exists"}, 400
+
 
     db.execute(
         "INSERT INTO USERS (username, password, role) VALUES (?, ?, ?)",
-        (username, password, role)
+        (username, password, "agent")
     )
     db.commit()
-    with open("Agent2.py", "r") as f_in, open(f"Agent{numb}.py", "w") as f_out:
+    with open("Agent2.py", "r") as f_in, open(f"Agent{ID_Number}.py", "w") as f_out:
         lines = f_in.readlines()
 
         lines[21] = f'username = "{username}"\n'
         lines[22] = f'password = "{password}"\n'
-        lines[27] = f'AGENT_ID = "{numb}"\n'
+        lines[27] = f'AGENT_ID = "{ID_Number}"\n'
 
         f_out.writelines(lines)
-    return jsonify({f"AGENT{numb}": "created"})
+    return jsonify({f"AGENT{ID_Number}": "created"}) ,200
 
 # --- Agent result endpoint ---
 @app.route('/result', methods=['POST'])
@@ -342,6 +371,7 @@ def upload():
     file.save(filepath)
     return f'[+] File {file.filename} successfully uploaded', 200
 
+# Uploaded File Index
 @app.route('/uploads/<filename>')
 @require_token(role="admin")
 def uploaded_file(filename):
@@ -349,6 +379,7 @@ def uploaded_file(filename):
         return redirect(url_for("login"))
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+# Uploads
 @app.route('/uploads/')
 @require_token(role="admin")
 def uploads_list():
@@ -357,6 +388,7 @@ def uploads_list():
     files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))]
     return render_template("uploads.html", files=files)
 
+# Plugins
 @app.route('/plugins/')
 @require_token(role="admin")
 def plugins_list():
@@ -365,7 +397,7 @@ def plugins_list():
     plugins = [f for f in os.listdir(PLUGINS_DIR) if f.endswith(".py")]
     return render_template("plugins.html", plugins=plugins)
 
-
+# Plugin file Index
 @app.route("/plugins/<filename>")
 @require_token(role="admin")
 def serve_plugin(filename):
@@ -374,6 +406,7 @@ def serve_plugin(filename):
         return "Invalid file", 400
     return send_from_directory(PLUGINS_DIR, filename)
 
+# Plugin run functionality
 @app.route('/plugins/run', methods=['POST'])
 def run_plugin():
     if "username" not in session:
@@ -514,8 +547,6 @@ def logout():
     return redirect(url_for("login"))
 
 # --- Dashboard ---
-
-
 @app.route("/dashboard")
 @require_token(role="admin")
 def dashboard():
@@ -620,6 +651,7 @@ def tasks_list():
     # Pass API_KEY to template
     return render_template('tasks.html', tasks=tasks_str, api_key=API_KEY)
 
+# Task Delete
 @app.route('/tasks/<task_uuid>', methods=['DELETE'])
 @require_token(role="admin")
 def delete_task(task_uuid):

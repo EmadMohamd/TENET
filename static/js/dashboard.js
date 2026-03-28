@@ -120,7 +120,50 @@ document.getElementById("taskForm").addEventListener("submit", async (e) => {
     document.getElementById("taskForm").reset();
     updateTasks();
 });
+/* ================= CREATE AGENT ================= */
+document.getElementById("createAgentForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
 
+    const messageBox = document.getElementById("createAgentMessage");
+    messageBox.innerHTML = "";
+
+    const payload = {
+        id: document.getElementById("newAgentId").value.trim(),
+        username: document.getElementById("newUsername").value.trim(),
+        password: document.getElementById("newPassword").value.trim()
+    };
+
+    try {
+        const res = await fetch("/agent-create", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + API_KEY
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.status === "success") {
+            messageBox.innerHTML = `<div class="alert alert-success">Agent created successfully</div>`;
+            document.getElementById("createAgentForm").reset();
+
+            // optional: refresh agents list
+            if (typeof updateAgents === "function") updateAgents();
+        } else {
+            messageBox.innerHTML = `<div class="alert alert-danger">
+                ${data.error || "Failed to create agent"}
+            </div>`;
+        }
+
+    } catch (err) {
+        console.error(err);
+        messageBox.innerHTML = `<div class="alert alert-danger">
+            Network or server error
+        </div>`;
+    }
+});
 /* ================= AUTO REFRESH ================= */
 updateAgents();
 updateTasks();
