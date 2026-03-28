@@ -1,144 +1,298 @@
-# 🛰️ Remote Agent Control Server  
-A Flask‑based command‑and‑control style server for managing remote agents, dispatching tasks, receiving results, and monitoring agent status.  
-This project is intended for **educational**, **research**, and **automation** scenarios where a central server coordinates lightweight remote clients.
+# 🛰️ Remote Agent Control Server
+
+A **Flask-based command-and-control style server** for managing remote agents, dispatching tasks, receiving results, and monitoring agent status in real time.
+
+> ⚠️ Intended for **educational, research, and controlled automation environments only**.
 
 ---
 
-## 🚀 Features
+# 🚀 Features
 
-### 🔐 Encrypted Communication
-- Agents send **encrypted JSON payloads** using Fernet symmetric encryption.
-- Server decrypts beacons and results securely.
-- **API key** required for creating tasks.
+## 🔐 Encrypted Communication
 
-### 🗄️ SQLite Database Integration
-- Persistent storage for:
-  - Agents
-  - Tasks
-  - Users
-- Survives server restarts.
-- Simple schema, easy to extend.
+* Agents communicate using **Fernet symmetric encryption**
+* Secure transmission of:
 
-### 📡 Live Agent Monitoring
-- Tracks:
-  - Hostname
-  - OS
-  - Username
-  - IP address
-  - Last seen timestamp
-- Online/offline detection with configurable timeout.
-
-### 📁 File Upload Support
-- Upload files to the server.
-- Agents can download them when needed.
-
-### 🔑 Dual Login System
-- **Dashboard login** for administrators.
-- **Agent login** for remote clients (token-based).
-
-### 🧩 Plugin Support
-- Dynamically load Python modules on agents.
-- Agents execute plugins in-memory when received from the server.
-- Ideal for extending functionality without redeploying agents.
+  * Beacons
+  * Task results
+* Prevents plaintext interception
+* **API key required** for privileged operations
 
 ---
 
-## 📦 Project Structure
+## 👤 Agent Creation & Management
 
+* Create agents directly from the dashboard
+* Required fields:
 
+  * Agent ID
+  * Username
+  * Password
+* Agents are:
+
+  * Stored in SQLite
+  * Assigned a default role (`agent`)
+* Enables controlled onboarding of new clients
+
+---
+
+## 🗄️ SQLite Database Integration
+
+* Persistent storage for:
+
+  * Agents
+  * Tasks
+  * Users
+* Lightweight and easy to manage
+* Survives server restarts
+* Simple schema, easy to extend
+
+---
+
+## 📡 Live Agent Monitoring
+
+Track all connected agents in real time:
+
+* Hostname
+* Operating system
+* Username
+* IP address
+* Last seen timestamp
+
+✅ Automatic:
+
+* Online/offline detection
+* Status updates via beaconing
+
+---
+
+## 📁 File Upload Support
+
+* Upload files directly from dashboard
+* Agents can:
+
+  * Download files
+  * Execute or store them locally
+
+---
+
+## 🔑 Dual Authentication System
+
+### 🧑‍💻 Admin Dashboard
+
+* Username/password login
+* Full control over:
+
+  * Agents
+  * Tasks
+  * Files
+  * Plugins
+
+### 🤖 Agent Authentication
+
+* Token-based authentication
+* Issued upon successful login
+* Used for secure communication
+
+---
+
+## 🧩 Plugin System
+
+* Dynamically load Python modules
+* Executed **in-memory on agents**
+* No redeployment required
+
+💡 Ideal for:
+
+* Extending functionality
+* Rapid testing
+* Modular operations
+
+---
+
+# 📦 Project Structure
+
+```
 project/
 │
-├── app.py # Main Flask server
-├── database.db # SQLite database
-├── upload/ # Uploaded files
-├── plugins/ # Server-side plugin directory
-├── templates/ # HTML templates for dashboard
-└── static/ # CSS/JS assets
-
+├── app.py              # Main Flask server
+├── database.db        # SQLite database
+├── upload/            # Uploaded files
+├── plugins/           # Server-side plugins
+├── templates/         # HTML dashboard
+└── static/            # CSS / JS assets
+```
 
 ---
 
-## ⚙️ How It Works
+# ⚙️ How It Works
 
-### 1️⃣ Agent Login
-- Agents authenticate using JSON credentials.
-- On success, the server:
-  - Registers the agent
-  - Issues a session token
-  - Stores metadata in SQLite
+## 1️⃣ Agent Creation
 
-### 2️⃣ Beaconing
-- Agents periodically POST encrypted JSON to `/beacon`.
-- The server:
-  - Updates `last_seen`
-  - Returns the next pending task (if any)
+* Admin creates an agent via dashboard
+* Stored in database with:
 
-### 3️⃣ Task Execution
-- Tasks are stored in SQLite and delivered to agents when they beacon.
-- Types include: `shell`, `download`, `upload`, `sleep`, and plugin execution.
+  * ID
+  * Credentials
+  * Default role (`agent`)
 
-### 4️⃣ Result Submission
-- Agents POST encrypted results to `/result`.
-- Server updates the task entry with the output.
+---
 
-### 5️⃣ Dashboard
+## 2️⃣ Agent Login
+
+* Agent sends JSON credentials
+* Server:
+
+  * Validates credentials
+  * Registers/updates agent
+  * Returns authentication token
+
+---
+
+## 3️⃣ Beaconing
+
+* Agents periodically POST encrypted data to `/beacon`
+
+Server actions:
+
+* Decrypt payload
+* Update `last_seen`
+* Mark agent as online
+* Return pending task (if any)
+
+---
+
+## 4️⃣ Task Dispatching
+
+* Tasks stored in SQLite
+* Delivered when agent beacons
+
+### Supported task types:
+
+* `shell` → execute command
+* `download` → fetch file
+* `upload` → send file to server
+* `sleep` → adjust beacon interval
+* `plugin` → execute module
+
+---
+
+## 5️⃣ Result Submission
+
+* Agents POST encrypted results to `/result`
+* Server:
+
+  * Decrypts data
+  * Stores output in database
+  * Marks task as completed
+
+---
+
+## 6️⃣ Admin Dashboard
+
 Admins can:
-- View live agents
-- View all tasks
-- Upload files
-- Launch plugins
-- Monitor online/offline status
+
+* 👀 View live agents
+* 📋 Manage tasks
+* 📁 Upload/download files
+* 🧩 Execute plugins
+* ➕ Create new agents
+* 📡 Monitor activity in real time
 
 ---
 
-## 🔧 Running the Server
+# 🧪 Example Payloads
 
-1. **Install dependencies**
+## 📡 Agent Beacon
 
-```bash
-pip install -r requirements.txt
-Set environment variables
-export API_KEY="your_api_key_here"
-Start the server
-python app.py
-Server runs on: http://0.0.0.0:5000
-🧪 Example Agent Beacon Payload
-
-Encrypted JSON (after decryption):
-
+```json
 {
   "id": "agent1",
   "hostname": "DESKTOP-123",
   "user": "john",
   "os": "Windows 10"
 }
-📬 Task Format
+```
 
-Tasks are simple JSON objects:
+---
 
+## 📬 Task Example
+
+```json
 {
   "type": "shell",
   "command": "whoami"
 }
+```
 
-For plugins:
+---
 
+## 🧩 Plugin Task
+
+```json
 {
   "type": "download",
   "url": "http://server:5000/plugins/test_plugin.py"
 }
-🛡️ Security Notes
-All agent communication is encrypted using Fernet.
-API key required for task creation.
-Consider hashing dashboard passwords in production.
-Limit plugin access to trusted operators only.
-🔗 Links
-Dashboard
-Live Agents
-Tasks
-Uploaded Files
-Plugins Directory
+```
 
+---
 
+# 🔧 Running the Server
 
+## 1. Install dependencies
 
+```bash
+pip install -r requirements.txt
+```
+
+## 2. Set environment variable
+
+```bash
+export API_KEY="your_api_key_here"
+```
+
+## 3. Start server
+
+```bash
+python app.py
+```
+
+Server runs on:
+
+```
+http://0.0.0.0:5000
+```
+
+---
+
+# 🛡️ Security Notes
+
+* 🔒 All agent communication is encrypted (Fernet)
+* 🔑 API key required for sensitive actions
+* ⚠️ Passwords should be **hashed in production**
+* ⚠️ Restrict plugin execution to trusted users
+* ⚠️ Use HTTPS in real deployments
+
+---
+
+# 🔗 Dashboard Sections
+
+* **Live Agents**
+* **Tasks**
+* **Uploaded Files**
+* **Plugins**
+* **Create Agent**
+
+---
+
+# 💡 Future Improvements (Optional Ideas)
+
+* Role-based access control (RBAC)
+* Agent grouping/tagging
+* WebSocket live updates (instead of polling)
+* Audit logs for actions
+* Payload builder for agents
+* Docker deployment
+
+---
