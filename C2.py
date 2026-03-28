@@ -11,17 +11,12 @@ from flask import g
 import secrets
 from functools import wraps
 import logging
-import random
-
-
-app = Flask(__name__)
-load_dotenv()
-
-import logging
 import sys
 from flask import Flask
 
 app = Flask(__name__)
+load_dotenv()
+
 
 # Configure Flaks terminal colors Correctly
 G = "\033[92m"  # Green (2xx)
