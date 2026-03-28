@@ -10,6 +10,7 @@ import sqlite3
 from flask import g
 import secrets
 from functools import wraps
+import random
 
 
 app = Flask(__name__)
@@ -247,6 +248,43 @@ def agent_detail(agent_id):
         })
 
     return render_template('agent_detail.html', agent_id=agent_id, tasks=task_rows)
+
+#admin create a new instance of the agent
+@app.route('/agent-create', methods=['POST'])
+#@require_token(role="admin")
+def agent_create():
+    username = request.json.get("username")
+    password = request.json.get("password")
+    role = request.json.get("role")
+    numb = random.randint(1, 100)
+    db = get_db()
+    existing_username = db.execute(
+        "SELECT 1 FROM USERS WHERE username = ?",
+        (username,)
+    ).fetchone()
+    existing_agentID = db.execute(
+        "SELECT 1 FROM AGENTS WHERE ID = ?",
+        (numb,)
+    ).fetchone()
+    if existing_username:
+        return {"error": "Username already exists"}, 400
+    if existing_agentID:
+        return {"error": "AgentID already exists"}, 400
+
+    db.execute(
+        "INSERT INTO USERS (username, password, role) VALUES (?, ?, ?)",
+        (username, password, role)
+    )
+    db.commit()
+    with open("Agent2.py", "r") as f_in, open(f"Agent{numb}.py", "w") as f_out:
+        lines = f_in.readlines()
+
+        lines[21] = f'username = "{username}"\n'
+        lines[22] = f'password = "{password}"\n'
+        lines[27] = f'AGENT_ID = "{numb}"\n'
+
+        f_out.writelines(lines)
+    return jsonify({f"AGENT{numb}": "created"})
 
 # --- Agent result endpoint ---
 @app.route('/result', methods=['POST'])
