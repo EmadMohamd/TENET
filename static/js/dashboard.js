@@ -1,5 +1,3 @@
-
-
 /* ================= AGENTS ================= */
 async function updateAgents() {
     try {
