@@ -319,12 +319,14 @@ def result():
 
     task_uuid = result_info.get("uuid")
     output = result_info.get("output")
-
+    executed_at = result_info.get("executed_at")
+    print(task_uuid)
+    print(output)
+    print(executed_at)
     db = get_db()
     db.execute("""
-        UPDATE tasks SET output = ?
-        WHERE uuid = ?
-    """, (output, task_uuid))
+        UPDATE tasks SET output = ? , executed_at = ? WHERE uuid = ?
+    """, (output, executed_at,task_uuid))
     db.commit()
 
     return jsonify({"status": "received"})
@@ -607,7 +609,7 @@ def tasks_data():
     db = get_db()
 
     rows = db.execute("""
-        SELECT uuid, agent_id, task_json, output
+        SELECT uuid, agent_id, task_json, output ,executed_at
         FROM tasks
         ORDER BY rowid DESC
     """).fetchall()
@@ -617,7 +619,8 @@ def tasks_data():
         tasks_dict[str(t["uuid"])] = {
             "agent_id": t["agent_id"],
             "task": json.loads(t["task_json"]),
-            "output": t["output"]
+            "output": t["output"],
+            "executed_at": t["executed_at"],
         }
 
     return jsonify(tasks_dict)

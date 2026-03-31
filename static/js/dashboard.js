@@ -43,7 +43,22 @@ async function updateTasks() {
         const tbody = document.getElementById("tasksBody");
         tbody.innerHTML = "";
 
-        Object.entries(tasks).forEach(([uuid, t]) => {
+        // Convert tasks object to array with UUID
+        const tasksArray = Object.entries(tasks).map(([uuid, t]) => ({ uuid, ...t }));
+
+        // Sort by executed_at (newest first), fallback to 0 if missing
+        tasksArray.sort((a, b) => {
+            const timeA = a.executed_at ? new Date(a.executed_at.replace(" ", "T")).getTime() : 0;
+            const timeB = b.executed_at ? new Date(b.executed_at.replace(" ", "T")).getTime() : 0;
+            return timeB - timeA; // descending
+        });
+
+        // Take only the last 4 tasks
+        const last4Tasks = tasksArray.slice(0, 4);
+
+        // Render each task
+        last4Tasks.forEach(t => {
+            const uuid = t.uuid;
             const task = t.task;
             const output = (t.output || "").toLowerCase();
             let row = document.createElement("tr");
@@ -54,21 +69,28 @@ async function updateTasks() {
                 if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
                     status = "Failed";
                     badge = "bg-danger";
-
                 } else {
                     status = "Completed";
                     badge = "bg-success";
                 }
             }
 
-            //let row = document.createElement("tr");
             if (t.output) row.classList.add("task-completed");
+
+            // Format executed_at
+            const executedAt = t.executed_at
+                ? (() => {
+                    const date = new Date(t.executed_at.replace(" ", "T"));
+                    return isNaN(date.getTime()) ? "—" : date.toLocaleString();
+                  })()
+                : "—";
 
             row.innerHTML = `
                 <td><span class="badge ${badge}">${status}</span></td>
                 <td>${t.agent_id}</td>
                 <td>${task.type}: ${task.command || task.url || task.path_to_file || ""}</td>
                 <td>${t.output || "Waiting for result..."}</td>
+                <td>${executedAt}</td>
                 <td>${uuid}</td>
                 <td><button class="btn btn-sm btn-outline-danger" onclick="deleteTask('${uuid}')">Delete</button></td>
             `;

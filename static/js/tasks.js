@@ -36,11 +36,13 @@ async function updateTasks() {
             const output = (t.output || "").toLowerCase();
             const row = document.createElement("tr");
 
-            // Determine row status
+            // Apply row class based on output
             if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
                 row.classList.add("task-failed");
-            } else if (t.output) {
+            } else if (t.output && output !== "pending") {
                 row.classList.add("task-completed");
+            } else {
+                row.classList.add("task-pending");
             }
 
             row.innerHTML = `
@@ -53,6 +55,9 @@ async function updateTasks() {
             `;
             tbody.appendChild(row);
         });
+
+        // Re-apply filters after updating tasks
+        applyFilters();
     } catch (e) {
         console.error(e);
     }
@@ -92,9 +97,9 @@ function applyFilters() {
     }
 }
 
-// Add event listeners to filters
+// Attach event listeners to filters
 filters.forEach(f => f.addEventListener("input", applyFilters));
 
-// Initial load
+// Initial load and auto-refresh
 updateTasks();
 setInterval(updateTasks, 2000);
