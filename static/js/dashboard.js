@@ -45,10 +45,23 @@ async function updateTasks() {
 
         Object.entries(tasks).forEach(([uuid, t]) => {
             const task = t.task;
-            let status = t.output ? "Completed" : "Pending";
-            let badge = t.output ? "bg-success" : "bg-warning";
-
+            const output = (t.output || "").toLowerCase();
             let row = document.createElement("tr");
+            let status = "Pending";
+            let badge = "bg-warning";
+
+            if (t.output) {
+                if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
+                    status = "Failed";
+                    badge = "bg-danger";
+
+                } else {
+                    status = "Completed";
+                    badge = "bg-success";
+                }
+            }
+
+            //let row = document.createElement("tr");
             if (t.output) row.classList.add("task-completed");
 
             row.innerHTML = `

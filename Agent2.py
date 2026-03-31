@@ -180,7 +180,7 @@ def execute_shell(command, task_uuid):
 
     except subprocess.CalledProcessError as e:
 
-        post_result(e.output.decode(), task_uuid)
+        post_result("[!] Error: "+e.output.decode(), task_uuid)
 
 
 # 1. Move the inner function to the top level
@@ -197,14 +197,14 @@ def execute_plugin(content, module_name, task_uuid):
         if hasattr(module, "run"):
             module.run()
             print(f"[+] Plugin '{module_name}' executed successfully")
-            post_result(f"Plugin '{module_name}' executed", task_uuid)
+            post_result(f"[+] Plugin '{module_name}' executed", task_uuid)
         else:
             print(f"[!] Plugin '{module_name}' has no run() function")
-            post_result(f"Plugin '{module_name}' has no run() function", task_uuid)
+            post_result(f"[!] Error: Plugin '{module_name}' has no run() function", task_uuid)
 
     except Exception as e:
         print(f"[!] Plugin '{module_name}' crashed: {e}")
-        post_result(f"Plugin '{module_name}' crashed: {e}", task_uuid)
+        post_result(f"[!] Error: Plugin '{module_name}' crashed: {e}", task_uuid)
 
 def download_file(url, save_as=None, task_uuid=None):
     try:
@@ -228,7 +228,7 @@ def download_file(url, save_as=None, task_uuid=None):
                 print(f"[!] Plugin '{module_name}' timed out, terminating...")
                 p.terminate()
                 p.join()
-                post_result(f"Plugin '{module_name}' aborted due to timeout", task_uuid)
+                post_result(f"[!] Error: Plugin '{module_name}' aborted due to timeout", task_uuid)
         else:
             if save_as is None:
                 save_as = url.split("/")[-1]
@@ -237,9 +237,9 @@ def download_file(url, save_as=None, task_uuid=None):
             post_result(f"Downloaded file {save_as}", task_uuid)
 
     except Exception as e:
-        print(f"[!] Error downloading {url}: {e}")
+        print(f"[!] Error: download failed {url}: {e}")
         if task_uuid:
-            post_result(f"Error: {e}", task_uuid)
+            post_result(f"[!] Error: {e}", task_uuid)
 
 
 def upload_file(path_to_file, task_uuid):
@@ -269,7 +269,7 @@ def upload_file(path_to_file, task_uuid):
 
         print(f"[!] Upload error: {e}")
 
-        post_result(f"[!] Upload error: {e}", task_uuid)
+        post_result(f"[!] Error: Failed to upload : {e}", task_uuid)
 
 
 def post_result(result, task_uuid):
