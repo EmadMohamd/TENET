@@ -12,6 +12,8 @@ import secrets
 from functools import wraps
 import logging
 import sys
+from zoneinfo import ZoneInfo
+
 
 
 app = Flask(__name__)
@@ -326,7 +328,7 @@ def result():
     executed_at = result_info.get("executed_at")
     print(task_uuid)
     print(output)
-    print(executed_at)
+    print("executed: ",executed_at)
     db = get_db()
     db.execute("""
         UPDATE tasks SET output = ? , executed_at = ? WHERE uuid = ?
@@ -623,12 +625,15 @@ def tasks_data():
 
     tasks_dict = {}
     for t in rows:
-        print(t["scheduled_at"])
+
         if t["scheduled_at"] is None:
             formatted_data = "N/A"
         else:
-            dt_object = datetime.fromisoformat(str(t["scheduled_at"]))
+            iso_string = str(t["scheduled_at"]).replace("Z", "+00:00")
+
+            dt_object = datetime.fromisoformat(iso_string)
             formatted_data = dt_object.strftime("%#m/%#d/%Y, %#I:%M:%S %p")
+
 
         tasks_dict[str(t["uuid"])] = {
             "agent_id": t["agent_id"],
@@ -637,7 +642,7 @@ def tasks_data():
             "executed_at": t["executed_at"],
             "scheduled_at": formatted_data
         }
-    print(tasks_dict)
+
 
     return jsonify(tasks_dict)
 

