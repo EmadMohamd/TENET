@@ -125,34 +125,69 @@ function deleteTask(uuid) {
         alert("Network or server error");
     });
 }
+
 /* ================= SEND TASK ================= */
 document.getElementById("taskForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
+    // --- Get form values ---
     const agentId = document.getElementById("agentId").value.trim();
     const type = document.getElementById("taskType").value;
     const cmd = document.getElementById("taskCommand").value.trim();
     const extra = document.getElementById("taskExtra").value.trim();
+    let scheduledAtInput = document.getElementById("taskScheduledAt").value; // datetime-local
 
-    let task = { type: type };
+    // --- Build task object ---
+    let task = { type };
 
-    if (type === "shell") task.command = cmd;
-    else if (type === "download") { task.url = cmd; task.save_as = extra; }
-    else if (type === "upload") task.path_to_file = cmd;
-    else if (type === "sleep") { task.min = parseInt(cmd) || 5; task.max = parseInt(extra) || 10; }
+    if (type === "shell") {
+        task.command = cmd;
+    } else if (type === "download") {
+        task.url = cmd;
+        task.save_as = extra;
+    } else if (type === "upload") {
+        task.path_to_file = cmd;
+    } else if (type === "sleep") {
+        task.min = parseInt(cmd) || 5;
+        task.max = parseInt(extra) || 10;
+    }
 
+    // --- Handle scheduled_at ---
+    if (!scheduledAtInput) {
+        // Admin left blank → use current UTC time
+        scheduledAtInput = new Date().toISOString();
+    } else {
+        // Admin chose a date → convert local datetime to full ISO UTC string
+        // Append ":00" if seconds are missing (datetime-local returns "YYYY-MM-DDTHH:MM")
+        const localDateTime = scheduledAtInput.includes(":") && scheduledAtInput.length === 16
+            ? scheduledAtInput + ":00"
+            : scheduledAtInput;
+        const date = new Date(localDateTime);
+        scheduledAtInput = date.toISOString();
+    }
+
+    // --- Build request body ---
+    const bodyData = {
+        id: agentId,
+        task: task,
+        scheduled_at: scheduledAtInput // always included at top-level
+    };
+
+    // --- Send task to server ---
     await fetch("/task", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + API_KEY
         },
-        body: JSON.stringify({ id: agentId, task: task })
+        body: JSON.stringify(bodyData)
     });
 
+    // --- Reset form and refresh tasks ---
     document.getElementById("taskForm").reset();
     updateTasks();
 });
+
 /* ================= CREATE AGENT ================= */
 document.getElementById("createAgentForm").addEventListener("submit", async (e) => {
     e.preventDefault();

@@ -12,7 +12,7 @@ import secrets
 from functools import wraps
 import logging
 import sys
-from flask import Flask
+
 
 app = Flask(__name__)
 load_dotenv()
@@ -89,11 +89,11 @@ def close_db(exception):
         app.logger.error(f"Context torn down due to error: {exception}")
 
 #Token Handling
-def require_token(role=None):  # ✅ accepts role
+def require_token(role=None):  #  accepts role
     def wrapper(f):
         @wraps(f)
         def decorated(*args, **kwargs):
-            # ✅ If role is admin, skip token check entirely
+            #  If role is admin, skip token check entirely
             if role == "admin":
                 request.agent_id = None
                 request.role = "admin"
@@ -342,14 +342,16 @@ def add_task():
     data = request.get_json()
     agent_id = data.get("id")
     command = data.get("task")
-
+    scheduled_at = data.get("scheduled_at")
     task_uuid = str(uuid.uuid4())
-
+    print(agent_id)
+    print(command)
+    print(scheduled_at)
     db = get_db()
     db.execute("""
-        INSERT INTO tasks (uuid, agent_id, task_json, output)
-        VALUES (?, ?, ?, NULL)
-    """, (task_uuid, agent_id, json.dumps(command)))
+        INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at)
+        VALUES (?, ?, ?, NULL, ?)
+    """, (task_uuid, agent_id, json.dumps(command),scheduled_at))
     db.commit()
 
     return jsonify({"status": "accepted", "uuid": task_uuid})
