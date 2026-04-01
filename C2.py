@@ -161,16 +161,20 @@ def beacon():
 
     # Fetch pending task
     task = db.execute("""
-        SELECT uuid, task_json FROM tasks
+        SELECT uuid, task_json ,scheduled_at FROM tasks
         WHERE agent_id = ? AND output IS NULL
-        LIMIT 1
-    """, (agent_id,)).fetchone()
+    """, (agent_id,)).fetchall()
 
     if task:
-        return jsonify({
-            "task": json.loads(task["task_json"]),
-            "uuid": task["uuid"]
-        })
+        formatted_tasks = [
+            {
+                "task": json.loads(row["task_json"]),
+                "uuid": row["uuid"],
+                "scheduled_at": row["scheduled_at"]
+            }
+            for row in task
+        ]
+        return (formatted_tasks)
 
     return jsonify({"task": None})
 
@@ -422,10 +426,11 @@ def run_plugin():
     # Insert task into tasks table
     task_uuid = str(uuid.uuid4())
     db = get_db()
+    current_time = datetime.now(timezone.utc)
     db.execute("""
-        INSERT INTO tasks (uuid, agent_id, task_json, output)
-        VALUES (?, ?, ?, NULL)
-    """, (task_uuid, agent_id, json.dumps({"type": "download", "url": plugin_url})))
+        INSERT INTO tasks (uuid, agent_id, task_json, output,scheduled_at)
+        VALUES (?, ?, ?, NULL,?)
+    """, (task_uuid, agent_id, json.dumps({"type": "download", "url": plugin_url}),current_time))
     db.commit()
 
     return redirect(url_for('plugins_list'))

