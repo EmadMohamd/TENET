@@ -124,7 +124,6 @@ def beacon():
                 return "No tasks"
             # Sorts the tasks by scheduled exec time in an ascending matter
             scheduled_tasks.sort(key=lambda x: x['scheduled_at'], reverse=False)
-            print("sched: ", scheduled_tasks)
             # pops first task supposed to be executed
             task_to_run = scheduled_tasks.pop(0)
             print(task_to_run)

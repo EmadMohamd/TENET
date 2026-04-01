@@ -326,9 +326,6 @@ def result():
     task_uuid = result_info.get("uuid")
     output = result_info.get("output")
     executed_at = result_info.get("executed_at")
-    print(task_uuid)
-    print(output)
-    print("executed: ",executed_at)
     db = get_db()
     db.execute("""
         UPDATE tasks SET output = ? , executed_at = ? WHERE uuid = ?
@@ -350,9 +347,6 @@ def add_task():
     command = data.get("task")
     scheduled_at = data.get("scheduled_at")
     task_uuid = str(uuid.uuid4())
-    print(agent_id)
-    print(command)
-    print(scheduled_at)
     db = get_db()
     db.execute("""
         INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at)
