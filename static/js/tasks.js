@@ -38,6 +38,7 @@ async function updateTasks() {
             const executedAt = t.executed_at ? (() => {
                 const date = new Date(t.executed_at.replace(" ", "T"));
                  return isNaN(date.getTime()) ? "—" : date.toLocaleString(); })(): "—";
+            const scheduledAt = t.scheduled_at
             // Apply row class based on output
             if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
                 row.classList.add("task-failed");
@@ -52,6 +53,7 @@ async function updateTasks() {
                 <td>${task.type}</td>
                 <td>${task.command || task.url || task.path_to_file || ""}</td>
                 <td>${t.output || "Pending"}</td>
+                <td>${scheduledAt}</td>
                 <td>${executedAt}</td>
                 <td>${uuid}</td>
                 <td><button class="btn btn-sm btn-delete" onclick="deleteTask('${uuid}', this)">Delete</button></td>

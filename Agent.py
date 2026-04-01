@@ -116,9 +116,12 @@ def beacon():
         if response.status_code == 200:
             data = response.json()
             # iterates through tasks offered by beacon , Avoids adding same task by filtering through UUID
-            for item in data:
-                if item["uuid"] not in scheduled_tasks:
-                    scheduled_tasks.append(item)
+            if data:
+                for item in data:
+                    if item["uuid"] not in scheduled_tasks:
+                        scheduled_tasks.append(item)
+            else:
+                return "No tasks"
             # Sorts the tasks by scheduled exec time in an ascending matter
             scheduled_tasks.sort(key=lambda x: x['scheduled_at'], reverse=False)
             print("sched: ", scheduled_tasks)

@@ -176,7 +176,7 @@ def beacon():
         ]
         return (formatted_tasks)
 
-    return jsonify({"task": None})
+    return ([])
 
 # --- Live agents API ---
 AGENT_ONLINE_TIMEOUT = 30  # seconds
@@ -616,19 +616,28 @@ def tasks_data():
     db = get_db()
 
     rows = db.execute("""
-        SELECT uuid, agent_id, task_json, output ,executed_at
+        SELECT uuid, agent_id, task_json, output ,executed_at,scheduled_at
         FROM tasks
         ORDER BY rowid DESC
     """).fetchall()
 
     tasks_dict = {}
     for t in rows:
+        print(t["scheduled_at"])
+        if t["scheduled_at"] is None:
+            formatted_data = "N/A"
+        else:
+            dt_object = datetime.fromisoformat(str(t["scheduled_at"]))
+            formatted_data = dt_object.strftime("%#m/%#d/%Y, %#I:%M:%S %p")
+
         tasks_dict[str(t["uuid"])] = {
             "agent_id": t["agent_id"],
             "task": json.loads(t["task_json"]),
             "output": t["output"],
             "executed_at": t["executed_at"],
+            "scheduled_at": formatted_data
         }
+    print(tasks_dict)
 
     return jsonify(tasks_dict)
 
