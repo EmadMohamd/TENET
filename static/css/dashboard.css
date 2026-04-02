@@ -138,3 +138,8 @@ body {
     pointer-events: none;
     opacity: 0.5;
 }
+
+.filters-wrapper .filter-input {
+    flex: 1;
+    min-width: 150px; /* optional minimum size */
+}

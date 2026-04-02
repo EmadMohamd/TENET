@@ -22,6 +22,23 @@
 <!-- ================= MAIN ================= -->
 <div class="main">
 
+    <!-- ===== AGENT FILTERS HORIZONTAL ===== -->
+    <div class="filters-wrapper d-flex gap-2 align-items-center">
+        <input type="text" class="form-control filter-input" id="filterAgentID" placeholder="Agent ID">
+        <input type="text" class="form-control filter-input" id="filterUser" placeholder="User">
+        <select class="form-select filter-input" id="filterOS">
+            <option value="">OS</option>
+            <option value="windows">Windows</option>
+            <option value="linux">Linux</option>
+            <option value="mac">Mac</option>
+        </select>
+        <select class="form-select filter-input" id="filterAgentStatus">
+            <option value="">Status</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+        </select>
+    </div>
+
     <!-- ================= LIVE AGENTS ================= -->
     <div id="live-agents" class="card mb-4">
         <div class="card-body">
@@ -43,6 +60,32 @@
         </div>
     </div>
 
+    <!-- ================= CREATE AGENT ================= -->
+    <div id="create-agent" class="card mb-4">
+        <div class="card-body">
+            <div class="section-title mb-3">Create Agent</div>
+            <form id="createAgentForm">
+                <div class="row g-2">
+                    <div class="col-md-2">
+                        <input class="form-control" id="newAgentId" placeholder="Agent ID" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input class="form-control" id="newUsername" placeholder="Username" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="password" class="form-control" id="newPassword" placeholder="Password" required>
+                    </div>
+
+                    <div class="col-md-2">
+                        <button class="btn btn-success w-100">Create</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Message output -->
+            <div id="createAgentMessage" class="mt-3"></div>
+        </div>
+    </div>
     <!-- ================= SEND TASK ================= -->
     <div id="send-task" class="card mb-4">
         <div class="card-body">
@@ -99,32 +142,8 @@
             </table>
         </div>
     </div>
-<!-- ================= CREATE AGENT ================= -->
-<div id="create-agent" class="card mb-4">
-    <div class="card-body">
-        <div class="section-title mb-3">Create Agent</div>
-        <form id="createAgentForm">
-            <div class="row g-2">
-                <div class="col-md-2">
-                    <input class="form-control" id="newAgentId" placeholder="Agent ID" required>
-                </div>
-                <div class="col-md-2">
-                    <input class="form-control" id="newUsername" placeholder="Username" required>
-                </div>
-                <div class="col-md-2">
-                    <input type="password" class="form-control" id="newPassword" placeholder="Password" required>
-                </div>
 
-                <div class="col-md-2">
-                    <button class="btn btn-success w-100">Create</button>
-                </div>
-            </div>
-        </form>
 
-        <!-- Message output -->
-        <div id="createAgentMessage" class="mt-3"></div>
-    </div>
-</div>
     <!-- ================= UPLOADED FILES ================= -->
     <div id="uploaded-files" class="card mb-4">
         <div class="card-body">

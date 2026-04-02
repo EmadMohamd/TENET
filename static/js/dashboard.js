@@ -9,16 +9,21 @@ async function updateAgents() {
         agents.forEach(a => {
             let id = a.id;
 
-            // last_seen is now a UNIX timestamp
-            let status = a.online ? "Online" : "Offline";
+            // status
+            let status = a.online ? "online" : "offline";
             let badgeClass = a.online ? "status-online" : "status-offline";
 
-            let seconds = Math.floor(Date.now()/1000 - a.last_seen);
-
+            let seconds = Math.floor(Date.now() / 1000 - a.last_seen);
 
             let row = document.createElement("tr");
+
+            // store clean status for filtering
+            row.dataset.status = status;
+
             row.innerHTML = `
-                <td><span class="badge ${badgeClass}">${status}</span></td>
+                <td><span class="badge ${badgeClass}">
+                    ${status.charAt(0).toUpperCase() + status.slice(1)}
+                </span></td>
                 <td>${id}</td>
                 <td>${a.hostname || ""}</td>
                 <td>${a.user || ""}</td>
@@ -26,12 +31,60 @@ async function updateAgents() {
                 <td>${a.ip || ""}</td>
                 <td>${seconds}s ago</td>
             `;
+
             tbody.appendChild(row);
         });
+
+        // apply filters AFTER table is built
+        applyAgentFilters();
+
     } catch (e) {
         console.error(e);
     }
 }
+
+
+/* ================= AGENT FILTERS ================= */
+const agentsTableBody = document.getElementById("agentsBody");
+
+const agentFilters = [
+    document.getElementById("filterAgentID"),
+    document.getElementById("filterUser"),
+    document.getElementById("filterOS"),
+    document.getElementById("filterAgentStatus")
+];
+
+function applyAgentFilters() {
+    const agentIdFilter = agentFilters[0].value.toLowerCase();
+    const userFilter = agentFilters[1].value.toLowerCase();
+    const osFilter = agentFilters[2].value.toLowerCase();
+    const statusFilter = agentFilters[3].value.toLowerCase();
+
+    for (let row of agentsTableBody.rows) {
+        const agentId = row.cells[1].innerText.toLowerCase();
+        const user = row.cells[3].innerText.toLowerCase();
+        const os = row.cells[4].innerText.toLowerCase();
+        const status = row.dataset.status;
+
+        const agentMatch = agentIdFilter === "" || agentId.includes(agentIdFilter);
+        const userMatch = userFilter === "" || user.includes(userFilter);
+        const osMatch = osFilter === "" || os.includes(osFilter);
+        const statusMatch = statusFilter === "" || status === statusFilter;
+
+        if (agentMatch && userMatch && osMatch && statusMatch) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    }
+}
+
+
+// live filtering
+agentFilters.forEach(input => {
+    input.addEventListener("input", applyAgentFilters);
+    input.addEventListener("change", applyAgentFilters);
+});
 
 /* ================= TASKS ================= */
 async function updateTasks() {
@@ -237,5 +290,5 @@ document.getElementById("createAgentForm").addEventListener("submit", async (e) 
 /* ================= AUTO REFRESH ================= */
 updateAgents();
 updateTasks();
-setInterval(updateAgents, 3000);
+setInterval(updateAgents, 2000);
 setInterval(updateTasks, 2000);
