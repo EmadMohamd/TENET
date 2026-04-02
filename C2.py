@@ -12,7 +12,6 @@ import secrets
 from functools import wraps
 import logging
 import sys
-from zoneinfo import ZoneInfo
 
 
 
@@ -53,6 +52,9 @@ werk_log.propagate = False
 
 
 # --- Configuration ---
+IP = "192.168.1.41"
+PORT = 5000
+UPLOAD_FOLDER = "./upload"
 API_KEY = os.getenv("API_KEY")
 DATABASE = "c2.db"
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
@@ -61,9 +63,11 @@ cipher = Fernet(SECRET_KEY)
 #Folders & Directories
 UPLOAD_FOLDER = 'upload'
 PLUGINS_DIR = "./plugins"
+TOOLS_FOLDER = "tools"
 os.makedirs(PLUGINS_DIR, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['TOOLS_FOLDER'] = TOOLS_FOLDER
 app.secret_key = SECRET_KEY
 
 
@@ -417,8 +421,8 @@ def run_plugin():
         return "Missing parameters", 400
 
     # Construct the plugin URL that agent will download
-    plugin_url = f"{request.host_url}plugins/{plugin_name}"
-
+    #plugin_url = f"{request.host_url}plugins/{plugin_name}"
+    plugin_url = "http://{IP}:{PORT}/plugins/{plugin_name}".format(IP=IP,PORT=PORT,plugin_name=plugin_name)
     # Insert task into tasks table
     task_uuid = str(uuid.uuid4())
     db = get_db()
@@ -676,6 +680,11 @@ def delete_task(task_uuid):
     db.execute("DELETE FROM tasks WHERE uuid = ?", (task_uuid,))
     db.commit()
     return jsonify({"status": "deleted"})
+
+
+@app.route('/tools/<filename>')
+def tools_file(filename):
+    return send_from_directory(app.config['TOOLS_FOLDER'], filename)
 
 # --- Main ---
 if __name__ == "__main__":

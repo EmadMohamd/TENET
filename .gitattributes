@@ -1,0 +1,2 @@
+tools/linpeas_small.sh text eol=lf
+tools/linpeas.sh text eol=lf
