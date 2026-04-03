@@ -180,9 +180,9 @@ def beacon():
             }
             for row in task
         ]
-        return (formatted_tasks)
+        return formatted_tasks
 
-    return ([])
+    return []
 
 # --- Live agents API ---
 AGENT_ONLINE_TIMEOUT = 30  # seconds
@@ -288,18 +288,18 @@ def agent_detail(agent_id):
 def agent_create():
     username = request.json.get("username")
     password = request.json.get("password")
-    ID_Number = request.json.get("id")
+    id_number = request.json.get("id")
 
     db = get_db()
     existing_username = db.execute(
         "SELECT 1 FROM USERS WHERE username = ?",
         (username,)
     ).fetchone()
-    existing_agentID = db.execute(
+    existing_agentid = db.execute(
         "SELECT 1 FROM AGENTS WHERE ID = ?",
-        (ID_Number,)
+        (id_number,)
     ).fetchone()
-    if existing_agentID:
+    if existing_agentid:
         return {"error": "AgentID already exists"}, 400
     if existing_username:
         return {"error": "Username already exists"}, 400
@@ -310,15 +310,15 @@ def agent_create():
         (username, password, "agent")
     )
     db.commit()
-    with open("Agent2.py", "r") as f_in, open(f"Agent{ID_Number}.py", "w") as f_out:
+    with open("Agent2.py", "r") as f_in, open(f"Agent{id_number}.py", "w") as f_out:
         lines = f_in.readlines()
 
         lines[21] = f'username = "{username}"\n'
         lines[22] = f'password = "{password}"\n'
-        lines[27] = f'AGENT_ID = "{ID_Number}"\n'
+        lines[27] = f'AGENT_ID = "{id_number}"\n'
 
         f_out.writelines(lines)
-    return jsonify({f"AGENT{ID_Number}": "created"}) ,200
+    return jsonify({f"AGENT{id_number}": "created"}) ,200
 
 # --- Agent result endpoint ---
 @app.route('/result', methods=['POST'])
