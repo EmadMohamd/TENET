@@ -131,8 +131,9 @@ def beacon():
             task = task_to_run["task"]
             task_uuid = task_to_run["uuid"]
             scheduled_at = task_to_run["scheduled_at"]
-            scheduled_at_cmp = datetime.fromisoformat(scheduled_at)
 
+
+            scheduled_at_cmp = datetime.fromisoformat(scheduled_at)
             current_time = datetime.now(timezone.utc)
 
             if scheduled_at_cmp <=current_time:
