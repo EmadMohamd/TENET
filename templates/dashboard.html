@@ -108,10 +108,13 @@
                         <input class="form-control" id="taskCommand" placeholder="Command / URL / Path / Min">
                     </div>
                     <div class="col-md-3">
+                        <input class="form-control" id="taskExtra" placeholder="Save as / Max">
+                    </div>
+                    <div class="col-md-3">
                         <input type="datetime-local" class="form-control" id="taskScheduledAt" placeholder="Leave blank to execute immediately">
                     </div>
                     <div class="col-md-3">
-                        <input class="form-control" id="taskExtra" placeholder="Save as / Max">
+                        <input type="number" class="form-control" id="recurringEveryInput" placeholder="Recurring every (minutes)" min="1"/>
                     </div>
                     <div class="col-md-2">
                         <button class="btn btn-primary w-100">Send</button>
@@ -134,6 +137,7 @@
                         <th>Output</th>
                         <th>Scheduled At</th>
                         <th>Executed At</th>
+                        <th>Recurring every</th>
                         <th>UUID</th>
                         <th></th>
                     </tr>
