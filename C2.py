@@ -375,12 +375,29 @@ def upload():
     return f'[+] File {file.filename} successfully uploaded', 200
 
 # Uploaded File Index
-@app.route('/uploads/<filename>')
-@require_token(role="admin")
+@app.route('/uploads/<filename>', methods=['GET', 'DELETE'])
 def uploaded_file(filename):
-    if "username" not in session:
-        return redirect(url_for("login"))
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    if request.method == 'GET':
+        # Serve file
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+    elif request.method == 'DELETE':
+        # Optionally check authorization/session here
+        if not os.path.exists(file_path):
+            return jsonify({"error": "File not found"}), 404
+
+        try:
+            os.remove(file_path)
+            return jsonify({"message": "File deleted successfully"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+@app.route("/files-data")
+def files_data():
+    files = os.listdir(app.config["UPLOAD_FOLDER"])
+    return jsonify(files)
 
 # Uploads
 @app.route('/uploads/')
@@ -680,7 +697,6 @@ def delete_task(task_uuid):
     db.execute("DELETE FROM tasks WHERE uuid = ?", (task_uuid,))
     db.commit()
     return jsonify({"status": "deleted"})
-
 
 @app.route('/tools/<filename>')
 def tools_file(filename):

@@ -143,3 +143,14 @@ body {
     flex: 1;
     min-width: 150px; /* optional minimum size */
 }
+
+/* ================= DELETE BUTTON ================= */
+.btn-delete {
+    background-color: #ef4444 !important;
+    border: none !important;
+    color: white !important;
+}
+
+.btn-delete:hover {
+    background-color: #dc2626 !important;
+}
