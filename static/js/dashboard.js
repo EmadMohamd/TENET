@@ -116,6 +116,7 @@ async function updateTasks() {
             let status = "Pending";
             let badge = "bg-warning";
             const scheduledAt = t.scheduled_at;
+            const recurringEvery = t.recurring_every
 
             if (t.output) {
                 if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
@@ -144,6 +145,7 @@ async function updateTasks() {
                 <td>${t.output || "Waiting for result..."}</td>
                 <td>${scheduledAt}</td>
                 <td>${executedAt}</td>
+                <td>${recurringEvery}</td>
                 <td>${uuid}</td>
                 <td><button class="btn btn-sm btn-outline-danger" onclick="deleteTask('${uuid}')">Delete</button></td>
             `;

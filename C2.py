@@ -129,7 +129,7 @@ def require_token(role=None):  #  accepts role
             if datetime.fromisoformat(row["expiry"]) < datetime.utcnow():
                 return jsonify({"error": "Token expired"}), 403
 
-            # ✅ Role enforcement
+            # Role enforcement
             if role and row["role"] != role:
                 return jsonify({"error": "Forbidden"}), 403
 
@@ -184,6 +184,7 @@ def beacon():
             }
             for row in task
         ]
+        print(formatted_tasks)
         return formatted_tasks
 
     return []
@@ -351,7 +352,6 @@ def add_task():
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
-    print("data", data)
     agent_id = data.get("id")
     command = data.get("task")
     scheduled_at = data.get("scheduled_at")
@@ -394,12 +394,12 @@ def recurring_scheduler(task_uuid,recurring_every,agent_id,command):
                 db = conn.cursor()
 
                 new_uuid = str(uuid.uuid4())
-                current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                current_time = datetime.now(timezone.utc)
 
                 db.execute("""
                         INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
-                        VALUES (?, ?, ?, NULL, ?, ?)
-                    """, (new_uuid, agent_id, json.dumps(command), current_time, recurring_every))
+                        VALUES (?, ?, ?, NULL, ?, NULL)
+                    """, (new_uuid, agent_id, json.dumps(command), current_time))
 
                 conn.commit()
                 conn.close()  # Always close it so you don't leak connections
@@ -419,10 +419,14 @@ def restart_recurring_tasks(app):
             db = conn.cursor()
 
             # Find tasks that have a recurring interval
-            db.execute(
-                "SELECT uuid, agent_id, task_json, recurring_every FROM tasks WHERE recurring_every IS NOT NULL AND recurring_every > 0")
+            db.execute("""
+                            SELECT uuid, agent_id, task_json, recurring_every ,output
+                            FROM tasks 
+                            WHERE recurring_every IS NOT NULL 
+                              AND recurring_every != 'N/A' 
+                              AND recurring_every > 0
+                              AND output IS NULL""")
             tasks = db.fetchall()
-            print(tasks)
             conn.close()
 
             if not tasks:
@@ -430,7 +434,7 @@ def restart_recurring_tasks(app):
                 return
 
             for task in tasks:
-                task_uuid, agent_id, task_json, recurring_every = task
+                task_uuid, agent_id, task_json, recurring_every, output= task
                 command = json.loads(task_json)  # Convert string back to dict
 
                 print(f"Resuming recurring task: {task_uuid} every {recurring_every}m")
@@ -719,7 +723,7 @@ def tasks_data():
     db = get_db()
 
     rows = db.execute("""
-        SELECT uuid, agent_id, task_json, output ,executed_at,scheduled_at
+        SELECT uuid, agent_id, task_json, output ,executed_at,scheduled_at,recurring_every
         FROM tasks
         ORDER BY rowid DESC
     """).fetchall()
@@ -735,13 +739,18 @@ def tasks_data():
             dt_object = datetime.fromisoformat(iso_string)
             formatted_data = dt_object.strftime("%#m/%#d/%Y, %#I:%M:%S %p")
 
+        if t["recurring_every"] is None:
+            rec = "N/A"
+        else:
+            rec=t["recurring_every"]
 
         tasks_dict[str(t["uuid"])] = {
             "agent_id": t["agent_id"],
             "task": json.loads(t["task_json"]),
             "output": t["output"],
             "executed_at": t["executed_at"],
-            "scheduled_at": formatted_data
+            "scheduled_at": formatted_data,
+            "recurring_every": rec,
         }
 
 
