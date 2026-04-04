@@ -1,8 +1,6 @@
 import os
 import json
 import uuid
-from asyncio.windows_events import NULL
-
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
@@ -56,7 +54,7 @@ werk_log.propagate = False
 
 
 # --- Configuration ---
-IP = "192.168.1.41"
+IP = "localhost"
 PORT = 5000
 UPLOAD_FOLDER = "./upload"
 API_KEY = os.getenv("API_KEY")
@@ -397,14 +395,25 @@ def recurring_scheduler(task_uuid,recurring_every,agent_id,command):
                 current_time = datetime.now(timezone.utc)
 
                 db.execute("""
-                        INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
-                        VALUES (?, ?, ?, NULL, ?, NULL)
-                    """, (new_uuid, agent_id, json.dumps(command), current_time))
+                                SELECT uuid, agent_id, task_json, recurring_every ,output
+                                FROM tasks 
+                                WHERE recurring_every IS NOT NULL 
+                                  AND recurring_every != 'N/A' 
+                                  AND recurring_every > 0
+                                  AND output IS NULL""")
+                task = db.fetchone()
+                if task:
+
+                    db.execute("""
+                            INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
+                            VALUES (?, ?, ?, NULL, ?, NULL)
+                        """, (new_uuid, agent_id, json.dumps(command), current_time))
+                    print(f"Successfully executed recurring task: {new_uuid}")
 
                 conn.commit()
                 conn.close()  # Always close it so you don't leak connections
 
-                print(f"Successfully executed recurring task: {new_uuid}")
+
                 time.sleep(seconds)
             except Exception as e:
                 print(f"Error in recurring_scheduler loop: {e}")
