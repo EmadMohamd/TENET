@@ -43,7 +43,7 @@ async function updateTasks() {
             // Apply row class based on output
             if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
                 row.classList.add("task-failed");
-            } else if (t.output && output !== "pending") {
+            } else if (t.output && output !== "pending" || t.executed_at) {
                 row.classList.add("task-completed");
             } else {
                 row.classList.add("task-pending");

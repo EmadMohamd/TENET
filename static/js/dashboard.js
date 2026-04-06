@@ -118,15 +118,15 @@ async function updateTasks() {
             const scheduledAt = t.scheduled_at;
             const recurringEvery = t.recurring_every
 
-            if (t.output) {
-                if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
+
+            if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
                     status = "Failed";
-                    badge = "bg-danger";
-                } else {
-                    status = "Completed";
-                    badge = "bg-success";
-                }
-            }
+                    badge = "bg-danger";}
+            else if (t.output && output !== "pending" || t.executed_at) {
+                     status = "Completed";
+                     badge = "bg-success";}
+            else    {
+                    status = "Pending"}
 
             if (t.output) row.classList.add("task-completed");
 
@@ -295,6 +295,50 @@ document.getElementById("createAgentForm").addEventListener("submit", async (e) 
         } else {
             messageBox.innerHTML = `<div class="alert alert-danger">
                 ${data.error || "Failed to create agent"}
+            </div>`;
+        }
+
+    } catch (err) {
+        console.error(err);
+        messageBox.innerHTML = `<div class="alert alert-danger">
+            Network or server error
+        </div>`;
+    }
+});
+
+/* ================= CREATE RevShell ================= */
+document.getElementById("createRevShellForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const messageBox = document.getElementById("createRevShellMessage");
+    messageBox.innerHTML = "";
+
+    const payload = {
+        agent_id: document.getElementById("revAgentId").value.trim(),
+        port: document.getElementById("Port").value.trim(),
+
+    };
+
+    try {
+        const res = await fetch("/revshell", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + API_KEY
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.status === "executed") {
+            messageBox.innerHTML = `<div class="alert alert-success">Reverse Shell created successfully</div>`;
+            document.getElementById("createRevShellForm").reset();
+
+
+        } else {
+            messageBox.innerHTML = `<div class="alert alert-danger">
+                ${data.error || "Failed to create Revshell"}
             </div>`;
         }
 

