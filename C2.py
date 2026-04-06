@@ -293,16 +293,18 @@ def agent_create():
     username = request.json.get("username")
     password = request.json.get("password")
     id_number = request.json.get("id")
-
+    print(username, password, id_number)
     db = get_db()
     existing_username = db.execute(
         "SELECT 1 FROM USERS WHERE username = ?",
         (username,)
     ).fetchone()
+    print(existing_username)
     existing_agentid = db.execute(
         "SELECT 1 FROM AGENTS WHERE ID = ?",
         (id_number,)
     ).fetchone()
+    print(existing_agentid)
     if existing_agentid:
         return {"error": "AgentID already exists"}, 400
     if existing_username:
@@ -317,12 +319,13 @@ def agent_create():
     with open("Agent2.py", "r") as f_in, open(f"Agent{id_number}.py", "w") as f_out:
         lines = f_in.readlines()
 
-        lines[21] = f'username = "{username}"\n'
-        lines[22] = f'password = "{password}"\n'
-        lines[27] = f'AGENT_ID = "{id_number}"\n'
+        lines[22] = f'username = "{username}"\n'
+        lines[23] = f'password = "{password}"\n'
+        lines[28] = f'AGENT_ID = "{id_number}"\n'
 
         f_out.writelines(lines)
-    return jsonify({f"AGENT{id_number}": "created"}) ,200
+    #return jsonify({f"AGENT{id_number}": "created"}) ,200
+    return {"success": "created"} ,200
 
 # --- Agent result endpoint ---
 @app.route('/result', methods=['POST'])

@@ -286,7 +286,7 @@ document.getElementById("createAgentForm").addEventListener("submit", async (e) 
 
         const data = await res.json();
 
-        if (res.ok && data.status === "success") {
+        if (res.ok && Object.values(data)[0] === "created") {
             messageBox.innerHTML = `<div class="alert alert-success">Agent created successfully</div>`;
             document.getElementById("createAgentForm").reset();
 
