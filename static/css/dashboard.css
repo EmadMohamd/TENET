@@ -3,38 +3,46 @@ body {
     background: linear-gradient(135deg,#0f172a,#1e293b);
     color: #e5e7eb;
     font-family: Segoe UI, Arial;
+    margin: 0;
+    padding: 0;
 }
 
-/* ================= SIDEBAR ================= */
+/* ================= TOP NAVBAR ================= */
 .sidebar {
-    height: 100vh;
-    width: 220px;
+    height: 60px;              /* top navbar height */
+    width: 100%;               /* full width */
     position: fixed;
-    left: 0;
     top: 0;
+    left: 0;
+    display: flex;             /* horizontal layout */
+    align-items: center;       /* vertical centering */
+    justify-content: flex-start;
     background-color: #020617 !important;
-    border-right: 1px solid #334155;
-    padding-top: 20px;
+    border-bottom: 1px solid #334155;
+    padding: 0 20px;
+    z-index: 1000;
 }
+
 .sidebar h4 {
     color: #cbd5f5;
-    text-align: center;
-    margin-bottom: 25px;
+    margin: 0 20px 0 0;        /* spacing to the right */
 }
+
 .sidebar a {
-    display: block;
-    padding: 12px 20px;
+    padding: 0 15px;
     color: #cbd5f5 !important;
     text-decoration: none;
     font-size: 15px;
+    line-height: 60px;         /* vertically center text */
 }
+
 .sidebar a:hover {
     background-color: #1e293b !important;
 }
 
-/* ================= MAIN ================= */
+/* ================= MAIN CONTENT ================= */
 .main {
-    margin-left: 220px;
+    margin-top: 60px;          /* leave space for navbar */
     padding: 30px;
 }
 
@@ -139,6 +147,13 @@ body {
     opacity: 0.5;
 }
 
+/* ================= FILTERS ================= */
+.filters-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
 .filters-wrapper .filter-input {
     flex: 1;
     min-width: 150px; /* optional minimum size */
@@ -150,7 +165,23 @@ body {
     border: none !important;
     color: white !important;
 }
-
 .btn-delete:hover {
     background-color: #dc2626 !important;
 }
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+    .sidebar {
+        flex-direction: column;
+        height: auto;
+        padding: 10px;
+    }
+    .sidebar a {
+        line-height: normal;
+        padding: 8px 0;
+    }
+    .main {
+        margin-top: auto; /* content flows below navbar */
+    }
+}
+

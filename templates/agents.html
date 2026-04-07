@@ -35,13 +35,14 @@
 <!-- ================= SIDEBAR ================= -->
 <div class="sidebar">
     <h4>C2 Panel</h4>
-    <a href="{{ url_for('dashboard') }}" class="{% if request.path == url_for('dashboard') %}disabled-link{% endif %}">Dashboard</a>
-    <a href="{{ url_for('agents_list') }}" class="{% if request.path == url_for('agents_list') %}disabled-link{% endif %}">Live Agents</a>
-    <a href="{{ url_for('tasks_list') }}" class="{% if request.path == url_for('tasks_list') %}disabled-link{% endif %}">All Tasks</a>
-    <a href="{{ url_for('uploads_list') }}" class="{% if request.path == url_for('uploads_list') %}disabled-link{% endif %}">Uploaded Files</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/info">Info</a>
+    <a href="/agents">Live Agents</a>
+    <a href="/tasks">Tasks</a>
+    <a href="/uploads">Uploaded Files</a>
+    <a href="/plugins">Plugins</a>
     <a href="{{ url_for('logout') }}">Logout</a>
 </div>
-
 <!-- ================= MAIN ================= -->
 <div class="main">
     <div class="card mb-4">

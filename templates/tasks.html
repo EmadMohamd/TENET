@@ -12,10 +12,12 @@
 <!-- ================= SIDEBAR ================= -->
 <div class="sidebar">
     <h4>C2 Panel</h4>
-    <a href="{{ url_for('dashboard') }}">Dashboard</a>
-    <a href="{{ url_for('agents_list') }}">Live Agents</a>
-    <a href="{{ url_for('tasks_list') }}" class="disabled-link">All Tasks</a>
-    <a href="{{ url_for('uploads_list') }}">Uploaded Files</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/info">Info</a>
+    <a href="/agents">Live Agents</a>
+    <a href="/tasks">Tasks</a>
+    <a href="/uploads">Uploaded Files</a>
+    <a href="/plugins">Plugins</a>
     <a href="{{ url_for('logout') }}">Logout</a>
 </div>
 

@@ -1,27 +1,36 @@
-/* ================= SIDEBAR ================= */
+/* ================= TOP NAVBAR ================= */
 .sidebar {
-    width: 220px;
+    height: 60px;             /* navbar height */
+    width: 100%;              /* full width */
     position: fixed;
-    height: 100%;
+    top: 0;
+    left: 0;
+    display: flex;            /* horizontal layout */
+    align-items: center;      /* vertical centering */
+    justify-content: flex-start;
     background-color: #1a1a1a;
     color: #fff;
-    padding: 20px;
+    padding: 0 20px;
+    z-index: 1000;
 }
+
 .sidebar h4 {
-    margin-bottom: 20px;
+    margin: 0 20px 0 0;       /* spacing to the right */
     font-weight: bold;
 }
+
 .sidebar a {
-    display: block;
+    padding: 0 15px;
     color: #e5e7eb;
     text-decoration: none;
-    margin: 8px 0;
-    padding: 6px 10px;
+    line-height: 60px;        /* vertically center */
     border-radius: 4px;
 }
+
 .sidebar a:hover {
     background-color: #333;
 }
+
 .sidebar a.disabled-link {
     opacity: 0.6;
     pointer-events: none;
@@ -29,14 +38,16 @@
 
 /* ================= MAIN CONTENT ================= */
 .main {
-    margin-left: 240px;
+    margin-top: 60px;         /* leave space for navbar */
     padding: 20px;
 }
+
 .card {
     background-color: #1f1f1f;
     border: none;
     color: #fff;
 }
+
 .card .section-title {
     font-size: 1.2rem;
     font-weight: bold;
@@ -45,11 +56,12 @@
 /* ================= FILTERS ================= */
 .filters-wrapper {
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
+    align-items: center;
     gap: 10px;
     margin-bottom: 15px;
 }
+
 .filter-input {
     width: 150px;
 }
@@ -60,15 +72,18 @@ table.table {
     border-collapse: collapse;
     color: #e5e7eb;
 }
+
 table.table thead {
     background-color: #1a1a1a;
     color: #fff;
 }
+
 table.table tbody tr,
 table.table tbody td {
     background-color: #2c2c2c;
     color: #fff;
 }
+
 table.table-hover tbody tr:hover td {
     background-color: #3a3a3a !important;
 }
@@ -78,10 +93,12 @@ table.table tbody tr.task-completed td {
     background-color: #047857 !important; /* green */
     color: #fff !important;
 }
+
 table.table tbody tr.task-failed td {
     background-color: #b91c1c !important; /* red */
     color: #fff !important;
 }
+
 table.table tbody tr.task-pending td {
     background-color: #d97706 !important; /* orange/yellow */
     color: #fff !important;
@@ -100,6 +117,24 @@ table.table tbody tr.task-pending:hover td {
     color: #fff;
     border: none;
 }
+
 .btn-delete:hover {
     background-color: #a71d2a;
 }
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+    .sidebar {
+        flex-direction: column;
+        height: auto;
+        padding: 10px;
+    }
+    .sidebar a {
+        line-height: normal;
+        padding: 8px 0;
+    }
+    .main {
+        margin-top: auto; /* content flows below navbar */
+    }
+}
+
