@@ -2,7 +2,7 @@ import requests
 from PIL import ImageGrab
 import uuid
 from datetime import datetime
-SERVER_URL = "http://localhost:5000"
+SERVER_URL = "http://192.168.1.41:5000"
 UPLOAD_ENDPOINT = "/upload"
 now = datetime.now()
 # Format: YYYY-MM-DD_HH-MM-SS

@@ -183,7 +183,7 @@ def beacon():
             }
             for row in task
         ]
-        print(formatted_tasks)
+        print("formatted tasks:", formatted_tasks)
         return formatted_tasks
 
     return []

