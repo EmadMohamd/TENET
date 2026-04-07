@@ -15,8 +15,8 @@ import logging
 import sys
 import threading
 import time
-
-
+import folium
+import requests
 
 app = Flask(__name__)
 load_dotenv()
@@ -662,13 +662,55 @@ def login():
     # -------------------------
     return render_template("login.html")
 
-
-
-
 @app.route("/logout")
 def logout():
     session.pop("username", None)
     return redirect(url_for("login"))
+
+# Getting the Geolocation of an IP from ip-api.com
+def get_location(ip):
+    url = f"http://ip-api.com/json/{ip}"
+    response = requests.get(url)
+    data = response.json()
+
+    if data['status'] == 'success':
+        return data['lat'], data['lon'], data['city'], data['country']
+    else:
+        return None
+
+@app.route("/info")
+@require_token(role="admin")
+def info():
+    if "username" not in session:
+        return redirect(url_for("login"))
+    ips =['8.8.8.8']
+    db = get_db()
+    agent_ip = db.execute("SELECT IP FROM agents").fetchall()
+    for row in agent_ip:
+        ips.append(row[0])
+
+    # Create base map
+    m = folium.Map(location=[20, 0], zoom_start=2)
+
+    for ip in ips:
+        result = get_location(ip)
+        if result:
+            lat, lon, city, country = result
+
+            folium.Marker(
+                location=[lat, lon],
+                popup=f"{ip} - {city}, {country}"
+            ).add_to(m)
+        map_html = m._repr_html_()  # key line
+
+    # Save map
+    #m.save("ip_map.html")
+    return render_template("info.html",map=map_html)
+
+
+
+
+
 
 # --- Dashboard ---
 @app.route("/dashboard")

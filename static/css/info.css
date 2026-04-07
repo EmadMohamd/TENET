@@ -1,0 +1,187 @@
+/* ================= GLOBAL ================= */
+body {
+    background: linear-gradient(135deg,#0f172a,#1e293b);
+    color: #e5e7eb;
+    font-family: Segoe UI, Arial;
+    margin: 0;
+    padding: 0;
+}
+
+/* ================= TOP NAVBAR ================= */
+.sidebar {
+    height: 60px;              /* top navbar height */
+    width: 100%;               /* full width */
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;             /* horizontal layout */
+    align-items: center;       /* vertical centering */
+    justify-content: flex-start;
+    background-color: #020617 !important;
+    border-bottom: 1px solid #334155;
+    padding: 0 20px;
+    z-index: 1000;
+}
+
+.sidebar h4 {
+    color: #cbd5f5;
+    margin: 0 20px 0 0;        /* spacing to the right */
+}
+
+.sidebar a {
+    padding: 0 15px;
+    color: #cbd5f5 !important;
+    text-decoration: none;
+    font-size: 15px;
+    line-height: 60px;         /* vertically center text */
+}
+
+.sidebar a:hover {
+    background-color: #1e293b !important;
+}
+
+/* ================= MAIN CONTENT ================= */
+.main {
+    margin-top: 60px;          /* leave space for navbar */
+    padding: 30px;
+}
+
+/* ================= CARDS ================= */
+.card {
+    background-color: rgba(30,41,59,0.85) !important;
+    border: 1px solid rgba(148,163,184,0.15) !important;
+    backdrop-filter: blur(6px);
+    border-radius: 12px;
+}
+
+/* ================= TABLE ================= */
+.table {
+    color: #e5e7eb !important;
+    border-color: #475569 !important;
+}
+.table thead tr {
+    background-color: #020617 !important;
+}
+.table thead th {
+    color: #e5e7eb !important;
+    background-color: #020617 !important;
+}
+.table tbody tr,
+.table tbody td {
+    background-color: #334155 !important;
+    color: #e5e7eb !important;
+}
+.table-hover tbody tr:hover,
+.table-hover tbody tr:hover td {
+    background-color: #475569 !important;
+}
+
+/* ================= COMPLETED TASK ================= */
+.task-completed {
+    background-color: #1f3b2c !important;
+}
+.task-completed td {
+    background-color: #1f3b2c !important;
+}
+
+/* ================= INPUTS ================= */
+.form-control,
+.form-select {
+    background-color: #1e293b !important;
+    border: 1px solid #475569 !important;
+    color: #e5e7eb !important;
+}
+.form-control::placeholder,
+.form-select option {
+    color: #94a3b8 !important;
+}
+.form-control:focus,
+.form-select:focus {
+    background-color: #1e293b !important;
+    border-color: #60a5fa !important;
+    color: #e5e7eb !important;
+    box-shadow: none;
+}
+
+/* ================= BUTTONS ================= */
+.btn-primary {
+    background-color: #2563eb !important;
+    border: none !important;
+}
+.btn-primary:hover {
+    background-color: #1d4ed8 !important;
+}
+
+/* ================= FILE LIST ================= */
+.list-group-item {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    color: #e5e7eb !important;
+}
+.file-link {
+    color: #60a5fa !important;
+    text-decoration: none;
+}
+.file-link:hover {
+    text-decoration: underline !important;
+}
+
+/* ================= BADGES ================= */
+.badge {
+    padding: 6px 10px !important;
+    font-weight: 500 !important;
+}
+.status-online {
+    background-color: #22c55e !important;
+}
+.status-offline {
+    background-color: #ef4444 !important;
+}
+.section-title {
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+    color: #cbd5f5 !important;
+}
+.disabled-link {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* ================= FILTERS ================= */
+.filters-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.filters-wrapper .filter-input {
+    flex: 1;
+    min-width: 150px; /* optional minimum size */
+}
+
+/* ================= DELETE BUTTON ================= */
+.btn-delete {
+    background-color: #ef4444 !important;
+    border: none !important;
+    color: white !important;
+}
+.btn-delete:hover {
+    background-color: #dc2626 !important;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+    .sidebar {
+        flex-direction: column;
+        height: auto;
+        padding: 10px;
+    }
+    .sidebar a {
+        line-height: normal;
+        padding: 8px 0;
+    }
+    .main {
+        margin-top: auto; /* content flows below navbar */
+    }
+}
+
