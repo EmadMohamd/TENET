@@ -22,15 +22,52 @@
 
 <!-- ================= MAIN ================= -->
 <div class="main">
-    <div id="live-agents" class="card mb-4">
-        <div class="card-body">
-            <div class="section-title mb-3">Map</div>
-                <div class ="map">
-                     {{ map|safe }}
-                </div>
-        </div>
-    </div>
+    <div class="row g-3">
 
+        <!-- MAP -->
+        <div class="col-md-6">
+            <div id="live-agents-map" class="card mb-4">
+                <div class="card-body">
+                    <div class="section-title mb-3">Agents Map</div>
+                    <div class="map">
+                        {{ map|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PIE CHART -->
+        <div class="col-md-6">
+            <div id="agents-analytics" class="card mb-4">
+                <div class="card-body">
+                    <div class="section-title mb-3">Agents Data</div>
+                    <div class="piechart">
+                        {{ chart_html|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Example additional content row (optional) -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="section-title mb-3">Another Panel</div>
+                    <p>Additional content can go here.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="section-title mb-3">Fourth Panel</div>
+                    <p>More content here.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
 </div>
 
 <script>

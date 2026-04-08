@@ -17,11 +17,11 @@ import threading
 import time
 import folium
 import requests
-
+import plotly.graph_objects as go
+import pandas as pd
+from collections import Counter
 app = Flask(__name__)
 load_dotenv()
-
-
 # Configure Flaks terminal colors Correctly
 G = "\033[92m"  # Green (2xx)
 B = "\033[94m"  # Blue (3xx)
@@ -678,6 +678,66 @@ def get_location(ip):
     else:
         return None
 
+def tasks_analytics(agent_id):
+    db = get_db()
+    total_agent_tasks = db.execute(
+        "SELECT executed_at FROM tasks WHERE agent_id = ?", (agent_id,)
+    ).fetchall()
+
+    timestamps = [task[0] for task in total_agent_tasks]
+    dates_only = [ts.split(" ")[0] for ts in timestamps]
+
+    date_counts = dict(Counter(dates_only))
+    return date_counts
+
+
+def chart():
+    db = get_db()
+    # Get all agent IDs
+    agents = db.execute("SELECT id FROM agents").fetchall()
+    agents = [row[0] for row in agents]
+
+    # Collect all dates across all agents
+    all_dates_set = set()
+    agent_date_counts = {}
+
+    for agent_id in agents:
+        counts = tasks_analytics(agent_id)
+        agent_date_counts[agent_id] = counts
+        all_dates_set.update(counts.keys())
+
+    # Sort all dates
+    all_dates = sorted(all_dates_set)
+
+    # Create Plotly figure
+    fig = go.Figure()
+
+    for agent_id in agents:
+        counts = [agent_date_counts[agent_id].get(date, 0) for date in all_dates]
+        fig.add_trace(go.Bar(
+            x=all_dates,
+            y=counts,
+            name=f"Agent {agent_id}"  # use agent ID in legend
+        ))
+
+    # Layout with dark theme
+    fig.update_layout(
+        title="Agent Activity Per Day",
+        xaxis_title="Date",
+        yaxis_title="Number of Tasks",
+        template="plotly_dark",
+        plot_bgcolor="rgba(30,41,59,0.85)",
+        paper_bgcolor="rgba(30,41,59,0.85)",
+        font_color="#e5e7eb",
+        xaxis=dict(gridcolor="rgba(148,163,184,0.15)"),
+        yaxis=dict(gridcolor="rgba(148,163,184,0.15)"),
+        barmode="group",  # bars for each agent side by side
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
+    chart_html = fig.to_html(full_html=False)
+    return chart_html
+
 @app.route("/info")
 @require_token(role="admin")
 def info():
@@ -693,19 +753,20 @@ def info():
     m = folium.Map(location=[20, 0], zoom_start=2)
 
     for ip in ips:
-        result = get_location(ip)
-        if result:
-            lat, lon, city, country = result
+        ip_result = get_location(ip)
+        if ip_result:
+            lat, lon, city, country = ip_result
 
             folium.Marker(
                 location=[lat, lon],
                 popup=f"{ip} - {city}, {country}"
             ).add_to(m)
         map_html = m._repr_html_()  # key line
+        chart_html = chart()
 
     # Save map
     #m.save("ip_map.html")
-    return render_template("info.html",map=map_html)
+    return render_template("info.html",map=map_html,chart_html=chart_html)
 
 
 
