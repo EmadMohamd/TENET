@@ -722,7 +722,7 @@ def chart():
 
     # Layout with dark theme
     fig.update_layout(
-        title="Agent Activity Per Day",
+        title="",
         xaxis_title="Date",
         yaxis_title="Number of Tasks",
         template="plotly_dark",
