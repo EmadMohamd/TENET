@@ -54,36 +54,103 @@ body {
     border-radius: 12px;
 }
 
-/* ================= TABLE ================= */
-.table {
-    color: #e5e7eb !important;
-    border-color: #475569 !important;
-}
-.table thead tr {
-    background-color: #020617 !important;
-}
-.table thead th {
-    color: #e5e7eb !important;
-    background-color: #020617 !important;
-}
-.table tbody tr,
-.table tbody td {
-    background-color: #334155 !important;
-    color: #e5e7eb !important;
-}
-.table-hover tbody tr:hover,
-.table-hover tbody tr:hover td {
-    background-color: #475569 !important;
+/* ================= Dropdown ================= */
+
+/* Container styling for dropdown and chart */
+#agentDropdown {
+    background-color: #1e293b; /* same as plot_bgcolor */
+    color: #e5e7eb;           /* light text */
+    border: 1px solid #334155; /* subtle border */
+    padding: 8px 12px;
+    font-size: 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    width: 200px;              /* fixed width */
+    outline: none;
+    transition: all 0.2s ease;
 }
 
-/* ================= COMPLETED TASK ================= */
-.task-completed {
-    background-color: #1f3b2c !important;
+/* Hover effect */
+#agentDropdown:hover {
+    border-color: #64748b;
+    background-color: #273449;
 }
-.task-completed td {
-    background-color: #1f3b2c !important;
+#agentDropdown {
+    height: 40px; /* fixed height */
+    margin-bottom: 0.5rem;
+    flex-shrink: 0; /* prevents shrinking */
+
+}#agentDropdown {
+    height: 40px; /* fixed height */
+    margin-bottom: 0.5rem;
+    flex-shrink: 0; /* prevents shrinking */
 }
 
+/* Focus effect */
+#agentDropdown:focus {
+    border-color: #3b82f6; /* blue highlight on focus */
+    box-shadow: 0 0 5px #3b82f6;
+}
+
+/* Optional: smooth transition for options dropdown */
+#agentDropdown option {
+    background-color: #1e293b;
+    color: #e5e7eb;
+}
+
+/* ================= Cards ================= */
+/* Make all cards in the same row the same height */
+/* Container for dashboard cards */
+/* Make the main container fill the screen */
+/* Make main container fill viewport */
+.main {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0.5rem;
+}
+
+/* 2x2 grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2 columns */
+    grid-template-rows: 1fr 1fr;    /* 2 rows */
+    gap: 1rem;
+    width: 100%;
+
+}
+
+/* Each grid item stretches */
+.grid-item {
+    display: flex;
+}
+
+/* Card fills grid cell */
+.grid-item > .card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Card body fills card */
+.grid-item > .card > .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Charts/maps fill card body */
+.map, .barchart, .piechart {
+    flex: 1;
+    min-height: 0; /* important for proper stretching */
+}
+/* ================= Pie Charts ================= */
+
+/* Pie charts fill remaining space in card-body */
+.piechart {
+    flex: 1 1 auto;   /* grow to fill available vertical space */
+    min-height: 0;    /* allows flex shrink correctly */
+}
 /* ================= INPUTS ================= */
 .form-control,
 .form-select {
@@ -112,19 +179,6 @@ body {
     background-color: #1d4ed8 !important;
 }
 
-/* ================= FILE LIST ================= */
-.list-group-item {
-    background-color: #334155 !important;
-    border-color: #475569 !important;
-    color: #e5e7eb !important;
-}
-.file-link {
-    color: #60a5fa !important;
-    text-decoration: none;
-}
-.file-link:hover {
-    text-decoration: underline !important;
-}
 
 /* ================= BADGES ================= */
 .badge {
@@ -145,28 +199,6 @@ body {
 .disabled-link {
     pointer-events: none;
     opacity: 0.5;
-}
-
-/* ================= FILTERS ================= */
-.filters-wrapper {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-.filters-wrapper .filter-input {
-    flex: 1;
-    min-width: 150px; /* optional minimum size */
-}
-
-/* ================= DELETE BUTTON ================= */
-.btn-delete {
-    background-color: #ef4444 !important;
-    border: none !important;
-    color: white !important;
-}
-.btn-delete:hover {
-    background-color: #dc2626 !important;
 }
 
 /* ================= RESPONSIVE ================= */

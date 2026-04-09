@@ -679,17 +679,28 @@ def get_location(ip):
     else:
         return None
 
-def tasks_analytics(agent_id):
+def tasks_execution_timestamps(agent_id):
     db = get_db()
     total_agent_tasks = db.execute(
         "SELECT executed_at FROM tasks WHERE agent_id = ?", (agent_id,)
     ).fetchall()
 
     timestamps = [task[0] for task in total_agent_tasks]
-    dates_only = [ts.split(" ")[0] for ts in timestamps]
+
+    dates_only = [ts.split(" ")[0] for ts in timestamps if ts is not None]
 
     date_counts = dict(Counter(dates_only))
     return date_counts
+
+def task_success_rate(agent_id):
+    db = get_db()
+    agent_status_total = db.execute(
+        "SELECT status FROM tasks WHERE agent_id = ?", (agent_id,)
+    ).fetchall()
+
+    statuses = [status[0] for status in agent_status_total]
+    status_counts = dict(Counter(statuses))
+    return status_counts
 
 def get_online_offline_counts():
     db = get_db()
@@ -717,35 +728,34 @@ def get_online_offline_counts():
         "online": counts.get("online", 0),
         "offline": counts.get("offline", 0)
     }
-
-    print(statuses)
-    print(counts)
     return counts
+
+@app.route("/get_piechart_task_success_rate")
+def get_piechart_task_success_rate():
+    db = get_db()
+    # Get all agent IDs
+    agents = db.execute("SELECT id FROM agents").fetchall()
+    agents = [row[0] for row in agents]
+    # Collect all dates across all agents
+    all_statuses_set = set()
+    agent_status_counts = {}
+
+    for agent_id in agents:
+        counts = task_success_rate(agent_id)
+        agent_status_counts[agent_id] = counts
+        all_statuses_set.update(counts.keys())
+
+    # Sort all dates
+    all_statuses = sorted(all_statuses_set)
+    return jsonify({
+        "statuses": all_statuses,
+        "agents": agent_status_counts
+    })
 
 @app.route("/get_pie_chart")
 def get_pie_chart():
     counts = get_online_offline_counts()
     return jsonify(counts)
-    '''fig = go.Figure(
-        go.Pie(
-            labels=["Online 🟢", "Offline 🔴"],
-            values=[counts["online"], counts["offline"]],
-            hole=0.4,  # donut chart
-            marker=dict(colors=["#22c55e", "#ef4444"])
-        )
-    )
-
-    fig.update_layout(
-        title="Agent Status (last 30 seconds)",
-        template="plotly_dark",
-        plot_bgcolor="rgba(30,41,59,0.85)",
-        paper_bgcolor="rgba(30,41,59,0.85)",
-        font_color="#e5e7eb"
-    )
-
-    # Convert to HTML div for embedding in dashboard
-    chart_html = fig.to_html(full_html=False)
-    return chart_html'''
 
 @app.route("/get_bar_chart")
 def get_bar_chart():
@@ -753,13 +763,12 @@ def get_bar_chart():
     # Get all agent IDs
     agents = db.execute("SELECT id FROM agents").fetchall()
     agents = [row[0] for row in agents]
-    print(agents)
     # Collect all dates across all agents
     all_dates_set = set()
     agent_date_counts = {}
 
     for agent_id in agents:
-        counts = tasks_analytics(agent_id)
+        counts = tasks_execution_timestamps(agent_id)
         agent_date_counts[agent_id] = counts
         all_dates_set.update(counts.keys())
 
@@ -769,35 +778,7 @@ def get_bar_chart():
         "dates": all_dates,
         "agents": agent_date_counts
     })
-    '''
-    # Create Plotly figure
-    fig = go.Figure()
 
-    for agent_id in agents:
-        counts = [agent_date_counts[agent_id].get(date, 0) for date in all_dates]
-        fig.add_trace(go.Bar(
-            x=all_dates,
-            y=counts,
-            name=f"Agent {agent_id}"  # use agent ID in legend
-        ))
-
-    # Layout with dark theme
-    fig.update_layout(
-        title="",
-        xaxis_title="Date",
-        yaxis_title="Number of Tasks",
-        template="plotly_dark",
-        plot_bgcolor="rgba(30,41,59,0.85)",
-        paper_bgcolor="rgba(30,41,59,0.85)",
-        font_color="#e5e7eb",
-        xaxis=dict(gridcolor="rgba(148,163,184,0.15)"),
-        yaxis=dict(gridcolor="rgba(148,163,184,0.15)"),
-        barmode="group",  # bars for each agent side by side
-        margin=dict(l=20, r=20, t=40, b=20)
-    )
-
-    chart_html = fig.to_html(full_html=False)
-    return chart_html'''
 @app.route("/get_map")
 def get_map():
     ips = ['8.8.8.8']
@@ -847,16 +828,9 @@ def info():
         map_html = get_map()  # key line
         chart_html = get_bar_chart()
         pie_html = get_pie_chart()
+        taskpie = get_piechart_task_success_rate
 
-    # Save map
-    #m.save("ip_map.html")
-    return render_template("info.html",map=map_html,chart=chart_html,pie=pie_html)
-
-
-
-
-
-
+    return render_template("info.html",map=map_html,chart=chart_html,pie=pie_html,taskpie=taskpie)
 # --- Dashboard ---
 @app.route("/dashboard")
 @require_token(role="admin")

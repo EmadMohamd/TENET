@@ -55,10 +55,60 @@ async function updatePieChart() {
     Plotly.react('piechart', data, layout);
 }
 
+async function updatePieChartTasks() {
+    const response = await fetch("/get_piechart_task_success_rate");
+    const counts = await response.json();
+
+    const dropdown = document.getElementById("agentDropdown");
+
+    // Populate dropdown if empty
+    if (dropdown.options.length === 0) {
+        for (const agentId of Object.keys(counts.agents)) {
+            const option = document.createElement("option");
+            option.value = agentId;
+            option.text = `Agent ${agentId}`;
+            dropdown.add(option);
+        }
+    }
+
+    // Get selected agent
+    const selectedAgent = dropdown.value || Object.keys(counts.agents)[0];
+    const agentCounts = counts.agents[selectedAgent] || {};
+
+    // Default to 0 if a status is missing
+    const success = agentCounts.success || 0;
+    const failure = agentCounts.failure || 0;
+    const pending = agentCounts.pending || 0;
+
+    const data = [{
+        values: [success, failure, pending],
+        labels: ["Successful 🟢", "Failed 🔴", "Pending 🟡"],
+        type: 'pie',
+        hole: 0.4,
+        marker: {colors: ['#22c55e', '#ef4444', '#FFEA00']}
+    }];
+
+    const layout = {
+        template: 'plotly_dark',
+        plot_bgcolor: 'rgba(30,41,59,0.85)',
+        paper_bgcolor: 'rgba(30,41,59,0.85)',
+        font: {color: '#e5e7eb'},
+        title: `Task Success Rate - Agent ${selectedAgent}`
+    };
+
+    Plotly.react('piechart_tasks', data, layout);
+}
+
+// Update pie chart when dropdown changes
+document.getElementById("agentDropdown").addEventListener("change", updatePieChartTasks);
+updatePieChartTasks();
+
 // Initial render
 updateBarChart();
 updatePieChart();
+updatePieChartTasks
 setInterval(() => {
     updateBarChart();
     updatePieChart();
+    updatePieChartTasks
 }, 10000);

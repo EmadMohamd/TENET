@@ -22,46 +22,50 @@
 
 <!-- ================= MAIN ================= -->
 <div class="main">
-    <div class="row g-3">
-
+    <div class="dashboard-grid">
         <!-- MAP -->
-        <div class="col-md-6">
-            <div id="live-agents-map" class="card mb-4">
+        <div class="grid-item">
+            <div class="card">
                 <div class="card-body">
                     <div class="section-title mb-3">Agents IP Geographical Map</div>
-                    <div class="map" id="map-container">
-                        {{ map|safe }}
-                    </div>
+                    <div class="map" id="map-container">{{ map|safe }}</div>
                 </div>
             </div>
         </div>
 
         <!-- BAR CHART -->
-        <div class="col-md-6">
-            <div id="agents-analytics" class="card mb-4">
+        <div class="grid-item">
+            <div class="card">
                 <div class="card-body">
                     <div class="section-title mb-3">Tasks by Agents Over Time</div>
-                    <div class="barchart" id="barchart">
-                        {{ chart|safe }}
-                    </div>
+                    <div class="barchart" id="barchart">{{ chart|safe }}</div>
                 </div>
             </div>
         </div>
 
-        <!-- PIE CHART -->
-        <div class="col-md-6">
-            <div class="card mb-4">
+        <!-- PIE CHART Agents -->
+        <div class="grid-item">
+            <div class="card">
                 <div class="card-body">
                     <div class="section-title mb-3">Online Vs Offline Agents</div>
-                    <div class="piechart" id="piechart">
-                        {{ pie|safe }}
-                    </div>
+                    <div class="piechart" id="piechart">{{ pie|safe }}</div>
                 </div>
             </div>
         </div>
 
+        <!-- PIE CHART Tasks -->
+        <div class="grid-item">
+            <div class="card">
+                <div class="card-body">
+                    <div class="section-title mb-3">Agents Tasks</div>
+                    <select id="agentDropdown"></select>
+                    <div class="piechart" id="piechart_tasks"></div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
 
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script src="{{ url_for('static', filename='js/info.js') }}"></script>
