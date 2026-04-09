@@ -65,11 +65,14 @@ body {
 .table thead th {
     color: #e5e7eb !important;
     background-color: #020617 !important;
+    text-align: center;
+    vertical-align: middle;
 }
 .table tbody tr,
 .table tbody td {
     background-color: #334155 !important;
     color: #e5e7eb !important;
+    text-align: center;
 }
 .table-hover tbody tr:hover,
 .table-hover tbody tr:hover td {
