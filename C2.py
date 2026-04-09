@@ -3,6 +3,7 @@ import json
 import subprocess
 import uuid
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
+from fontTools.merge.util import current_time
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -690,13 +691,69 @@ def tasks_analytics(agent_id):
     date_counts = dict(Counter(dates_only))
     return date_counts
 
+def get_online_offline_counts():
+    db = get_db()
+    agent_status = {}
+    statuses = {}
+    # Fetch all statuses
+    rows = db.execute("SELECT id ,last_seen FROM agents").fetchall()
+    for row in rows:
+        agent_status[row[0]] = row[1]
 
-def chart():
+    for agent_id, ts_str in agent_status.items():
+        # Convert string to datetime object (assume UTC)
+        last_activity = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        current_time = datetime.now(timezone.utc)
+        # Check if last activity was within 30 seconds
+        if (current_time - last_activity).total_seconds() <= 30:
+            statuses[agent_id] = "online"
+        else:
+            statuses[agent_id] = "offline"
+
+    # Count each status
+    counts = Counter(statuses.values())
+    # Ensure both keys exist
+    counts = {
+        "online": counts.get("online", 0),
+        "offline": counts.get("offline", 0)
+    }
+
+    print(statuses)
+    print(counts)
+    return counts
+
+@app.route("/get_pie_chart")
+def get_pie_chart():
+    counts = get_online_offline_counts()
+    return jsonify(counts)
+    '''fig = go.Figure(
+        go.Pie(
+            labels=["Online 🟢", "Offline 🔴"],
+            values=[counts["online"], counts["offline"]],
+            hole=0.4,  # donut chart
+            marker=dict(colors=["#22c55e", "#ef4444"])
+        )
+    )
+
+    fig.update_layout(
+        title="Agent Status (last 30 seconds)",
+        template="plotly_dark",
+        plot_bgcolor="rgba(30,41,59,0.85)",
+        paper_bgcolor="rgba(30,41,59,0.85)",
+        font_color="#e5e7eb"
+    )
+
+    # Convert to HTML div for embedding in dashboard
+    chart_html = fig.to_html(full_html=False)
+    return chart_html'''
+
+@app.route("/get_bar_chart")
+def get_bar_chart():
     db = get_db()
     # Get all agent IDs
     agents = db.execute("SELECT id FROM agents").fetchall()
     agents = [row[0] for row in agents]
-
+    print(agents)
     # Collect all dates across all agents
     all_dates_set = set()
     agent_date_counts = {}
@@ -708,7 +765,11 @@ def chart():
 
     # Sort all dates
     all_dates = sorted(all_dates_set)
-
+    return jsonify({
+        "dates": all_dates,
+        "agents": agent_date_counts
+    })
+    '''
     # Create Plotly figure
     fig = go.Figure()
 
@@ -736,7 +797,29 @@ def chart():
     )
 
     chart_html = fig.to_html(full_html=False)
-    return chart_html
+    return chart_html'''
+@app.route("/get_map")
+def get_map():
+    ips = ['8.8.8.8']
+    db = get_db()
+    agent_ip = db.execute("SELECT IP FROM agents").fetchall()
+    for row in agent_ip:
+        ips.append(row[0])
+
+    # Create base map
+    m = folium.Map(location=[20, 0], zoom_start=2)
+
+    for ip in ips:
+        ip_result = get_location(ip)
+        if ip_result:
+            lat, lon, city, country = ip_result
+
+            folium.Marker(
+                location=[lat, lon],
+                popup=f"{ip} - {city}, {country}"
+            ).add_to(m)
+        map_html = m._repr_html_()  # key line
+        return map_html
 
 @app.route("/info")
 @require_token(role="admin")
@@ -761,12 +844,13 @@ def info():
                 location=[lat, lon],
                 popup=f"{ip} - {city}, {country}"
             ).add_to(m)
-        map_html = m._repr_html_()  # key line
-        chart_html = chart()
+        map_html = get_map()  # key line
+        chart_html = get_bar_chart()
+        pie_html = get_pie_chart()
 
     # Save map
     #m.save("ip_map.html")
-    return render_template("info.html",map=map_html,chart_html=chart_html)
+    return render_template("info.html",map=map_html,chart=chart_html,pie=pie_html)
 
 
 
