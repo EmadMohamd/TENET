@@ -3,7 +3,6 @@ import json
 import subprocess
 import uuid
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
-from fontTools.merge.util import current_time
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -18,8 +17,6 @@ import threading
 import time
 import folium
 import requests
-import plotly.graph_objects as go
-import pandas as pd
 from collections import Counter
 app = Flask(__name__)
 load_dotenv()
@@ -826,11 +823,7 @@ def info():
                 popup=f"{ip} - {city}, {country}"
             ).add_to(m)
         map_html = get_map()  # key line
-        chart_html = get_bar_chart()
-        pie_html = get_pie_chart()
-        taskpie = get_piechart_task_success_rate
-
-    return render_template("info.html",map=map_html,chart=chart_html,pie=pie_html,taskpie=taskpie)
+    return render_template("info.html",map=map_html)
 # --- Dashboard ---
 @app.route("/dashboard")
 @require_token(role="admin")
