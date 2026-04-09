@@ -75,7 +75,7 @@ async function updateTasks() {
 
 /* ================= FILTERS ================= */
 const tableBody = document.getElementById("tasksBody");
-const filters = ["filterAgent", "filterType", "filterStatus", "filterUUID"]
+const filters = ["filterAgent", "filterType", "filterStatus", "filterUUID", "filterOutput"]
     .map(id => document.getElementById(id));
 
 function applyFilters() {
@@ -83,12 +83,15 @@ function applyFilters() {
     const typeFilter = filters[1].value.toLowerCase();
     const statusFilter = filters[2].value.toLowerCase();
     const uuidFilter = filters[3].value.toLowerCase();
+    const outputFilter = filters[4].value.toLowerCase().trim();
 
     for (let row of tableBody.rows) {
         const agentId = row.cells[0].innerText.toLowerCase();
         const type = row.cells[1].innerText.toLowerCase();
         const output = row.cells[3].innerText.toLowerCase();
-        const uuid = row.cells[4].innerText.toLowerCase();
+        const normalizedUUID = row.cells[8].innerText.replace(/-/g, "").toLowerCase();
+        const normalizedFilter = uuidFilter.replace(/-/g, "").toLowerCase();
+
 
         let status = "pending";
         if (row.classList.contains("task-completed")) status = "completed";
@@ -97,9 +100,12 @@ function applyFilters() {
         const statusMatch = (statusFilter === "" || status === statusFilter);
         const agentMatch = agentFilter === "" || agentId.includes(agentFilter);
         const typeMatch = typeFilter === "" || type === typeFilter;
-        const uuidMatch = uuidFilter === "" || uuid.includes(uuidFilter);
+        const uuidMatch = normalizedFilter === "" || normalizedUUID.includes(normalizedFilter);
+         const outputMatch = !outputFilter || output.includes(outputFilter);
 
-        if (agentMatch && typeMatch && statusMatch && uuidMatch) {
+
+
+        if (agentMatch && typeMatch && statusMatch && uuidMatch && outputMatch) {
             row.style.display = "";
         } else {
             row.style.display = "none";
