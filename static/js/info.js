@@ -41,7 +41,7 @@ async function updatePieChart() {
         labels: ["Online 🟢", "Offline 🔴"],
         type: 'pie',
         hole: 0.4,
-        marker: {colors: ['#22c55e', '#ef4444']}
+        marker: {colors: ['#006E00', '#b91c1c']}
     }];
 
     const layout = {
@@ -85,7 +85,7 @@ async function updatePieChartTasks() {
         labels: ["Successful 🟢", "Failed 🔴", "Pending 🟡"],
         type: 'pie',
         hole: 0.4,
-        marker: {colors: ['#22c55e', '#ef4444', '#FFEA00']}
+        marker: {colors: ['#006E00', '#b91c1c', '#d97706']}
     }];
 
     const layout = {
