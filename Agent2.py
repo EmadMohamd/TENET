@@ -218,7 +218,7 @@ def execute_shell(command, task_uuid):
         # Join collected output into a single string
         final_output = "".join(collected_output)
 
-        post_result(final_output, task_uuid, executed_at)
+        post_result(f"[+] Executed:{final_output}", task_uuid, executed_at)
 
     except Exception as e:
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
