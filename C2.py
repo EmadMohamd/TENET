@@ -897,7 +897,7 @@ def tasks_data():
     db = get_db()
 
     rows = db.execute("""
-        SELECT uuid, agent_id, task_json, output ,executed_at,scheduled_at,recurring_every
+        SELECT uuid, agent_id, task_json, output ,executed_at,scheduled_at,recurring_every,status
         FROM tasks
         ORDER BY rowid DESC
     """).fetchall()
@@ -925,6 +925,7 @@ def tasks_data():
             "executed_at": t["executed_at"],
             "scheduled_at": formatted_data,
             "recurring_every": rec,
+            "status": t["status"],
         }
 
 

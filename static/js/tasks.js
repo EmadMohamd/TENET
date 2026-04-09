@@ -40,6 +40,8 @@ async function updateTasks() {
                  return isNaN(date.getTime()) ? "—" : date.toLocaleString(); })(): "—";
             const scheduledAt = t.scheduled_at
             const recurringEvery = t.recurring_every
+            const status = t.status
+
             // Apply row class based on output
             if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
                 row.classList.add("task-failed");
@@ -54,6 +56,7 @@ async function updateTasks() {
                 <td>${task.type}</td>
                 <td>${task.command || task.url || task.path_to_file || ""}</td>
                 <td>${t.output || "Pending"}</td>
+                <td>${status}</td>
                 <td>${scheduledAt}</td>
                 <td>${executedAt}</td>
                 <td>${recurringEvery}</td>

@@ -71,10 +71,12 @@ table.table {
     width: 100%;
     border-collapse: collapse;
     color: #e5e7eb;
+    font-size: 0.8rem; /* smaller text */
+
 }
 
 table.table thead {
-    background-color: #1a1a1a;
+    background-color: #020617;
     color: #fff;
 }
 
@@ -90,7 +92,7 @@ table.table-hover tbody tr:hover td {
 
 /* ================= TASK STATUS ROWS ================= */
 table.table tbody tr.task-completed td {
-    background-color: #047857 !important; /* green */
+    background-color: #006E00 !important; /* green */
     color: #fff !important;
 }
 
