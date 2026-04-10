@@ -871,7 +871,7 @@ def get_bar_chart():
 
 @app.route("/get_map")
 def get_map():
-    ips = ['8.8.8.8','146.70.246.122','104.66.142.148','22.7.232.183']
+    ips = ['8.8.8.8','146.70.246.122','104.66.142.148','1.178.95.0']
     db = get_db()
     agent_ip = db.execute("SELECT IP FROM agents").fetchall()
     for row in agent_ip:
