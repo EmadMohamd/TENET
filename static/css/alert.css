@@ -1,0 +1,9 @@
+table.table tbody tr.task-alert td {
+    background-color: #b91c1c !important;
+    color: #fff !important;
+}
+
+/* optional hover consistency */
+table.table tbody tr.task-alert:hover td {
+    background-color: #991b1b !important;
+}

