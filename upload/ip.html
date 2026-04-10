@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_0dd842e4a7691a2e47029365be52a52b {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_0dd842e4a7691a2e47029365be52a52b" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_0dd842e4a7691a2e47029365be52a52b = L.map(
+                "map_0dd842e4a7691a2e47029365be52a52b",
+                {
+                    center: [20.0, 0.0],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 2,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_281403825d13ed8beb51891a02930b9e = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_281403825d13ed8beb51891a02930b9e.addTo(map_0dd842e4a7691a2e47029365be52a52b);
+        
+    
+            var marker_893a753302f511d85476e0720a9b5239 = L.marker(
+                [39.03, -77.5],
+                {
+}
+            ).addTo(map_0dd842e4a7691a2e47029365be52a52b);
+        
+    
+        var popup_b892eabf28c25221d0ad58643415d4c4 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_78fcc0ad50e7f154e3c6c457fef303b5 = $(`<div id="html_78fcc0ad50e7f154e3c6c457fef303b5" style="width: 100.0%; height: 100.0%;">8.8.8.8 - Ashburn, United States</div>`)[0];
+                popup_b892eabf28c25221d0ad58643415d4c4.setContent(html_78fcc0ad50e7f154e3c6c457fef303b5);
+            
+        
+
+        marker_893a753302f511d85476e0720a9b5239.bindPopup(popup_b892eabf28c25221d0ad58643415d4c4)
+        ;
+
+        
+    
+    
+            var marker_9adaa934c03e510d9c742d02c1859f36 = L.marker(
+                [44.4268, 26.1025],
+                {
+}
+            ).addTo(map_0dd842e4a7691a2e47029365be52a52b);
+        
+    
+        var popup_0f4f6b0df5e788d3b032f5fdea1074e6 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_aadddb71cca6cb7fc96d267dc789e31d = $(`<div id="html_aadddb71cca6cb7fc96d267dc789e31d" style="width: 100.0%; height: 100.0%;">146.70.246.122 - Bucharest, Romania</div>`)[0];
+                popup_0f4f6b0df5e788d3b032f5fdea1074e6.setContent(html_aadddb71cca6cb7fc96d267dc789e31d);
+            
+        
+
+        marker_9adaa934c03e510d9c742d02c1859f36.bindPopup(popup_0f4f6b0df5e788d3b032f5fdea1074e6)
+        ;
+
+        
+    
+    
+            var marker_97b57f9e73b77f4ceaa9d82e2479fd97 = L.marker(
+                [-33.8672, 151.1997],
+                {
+}
+            ).addTo(map_0dd842e4a7691a2e47029365be52a52b);
+        
+    
+        var popup_c985d9eb0f9fe058f670bdc4643839ee = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ba1c7988333f36fc6377dded40c07a61 = $(`<div id="html_ba1c7988333f36fc6377dded40c07a61" style="width: 100.0%; height: 100.0%;">104.66.142.148 - Sydney, Australia</div>`)[0];
+                popup_c985d9eb0f9fe058f670bdc4643839ee.setContent(html_ba1c7988333f36fc6377dded40c07a61);
+            
+        
+
+        marker_97b57f9e73b77f4ceaa9d82e2479fd97.bindPopup(popup_c985d9eb0f9fe058f670bdc4643839ee)
+        ;
+
+        
+    
+    
+            var marker_63ccfd0130a2c6e217757eb1f78fbdbc = L.marker(
+                [39.9819, -82.9048],
+                {
+}
+            ).addTo(map_0dd842e4a7691a2e47029365be52a52b);
+        
+    
+        var popup_477df45f9c2da04b437ccb8990a7b499 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_02ff29af5b25a5e1dfd7d205987f0599 = $(`<div id="html_02ff29af5b25a5e1dfd7d205987f0599" style="width: 100.0%; height: 100.0%;">22.7.232.183 - Columbus, United States</div>`)[0];
+                popup_477df45f9c2da04b437ccb8990a7b499.setContent(html_02ff29af5b25a5e1dfd7d205987f0599);
+            
+        
+
+        marker_63ccfd0130a2c6e217757eb1f78fbdbc.bindPopup(popup_477df45f9c2da04b437ccb8990a7b499)
+        ;
+
+        
+    
+</script>
+</html>

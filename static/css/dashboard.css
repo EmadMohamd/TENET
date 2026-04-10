@@ -187,3 +187,15 @@ body {
         margin-top: auto; /* content flows below navbar */
     }
 }
+
+/* ================= Plugin ================= */
+
+.plugin-link {
+    color: #60a5fa;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.plugin-link:hover {
+    text-decoration: underline;
+}

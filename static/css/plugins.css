@@ -1,0 +1,24 @@
+/* Plugin link */
+.plugin-link {
+    color: #60a5fa;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.plugin-link:hover {
+    text-decoration: underline;
+}
+
+/* Modal styling */
+.plugin-modal {
+    background: #020617 !important;
+    color: #e5e7eb !important;
+}
+
+/* Code preview */
+#pluginPreviewContent {
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}

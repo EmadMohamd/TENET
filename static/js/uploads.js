@@ -1,3 +1,17 @@
+
+// ================= PREVIEW FILE =================
+function previewFile(filename) {
+    const url = `/uploads/${encodeURIComponent(filename)}`;
+
+    const win = window.open(url, "_blank");
+
+    // fallback if popup blocked
+    if (!win) {
+        window.location.href = url;
+    }
+}
+
+
 // ================= DELETE FILE =================
 function deleteFile(filename, btn) {
     if (!confirm(`Delete "${filename}"?`)) return;
@@ -11,13 +25,19 @@ function deleteFile(filename, btn) {
     .then(res => res.json())
     .then(data => {
         if (data.message === "File deleted successfully") {
-            // Remove the row from the table
-            if (btn) btn.closest("tr").remove();
 
-            // If table is now empty, show "no files" message
+            // remove row
+            const row = btn.closest("tr");
+            if (row) row.remove();
+
+            // show empty message if needed
             const tbody = document.getElementById("filesBody");
             const emptyMsg = document.getElementById("noFilesMessage");
-            if (!tbody.rows.length) emptyMsg.style.display = "block";
+
+            if (!tbody.rows.length) {
+                emptyMsg.style.display = "block";
+            }
+
         } else {
             alert("Failed to delete file: " + (data.error || "Unknown error"));
         }
@@ -28,10 +48,11 @@ function deleteFile(filename, btn) {
     });
 }
 
+
 // ================= UPDATE FILE LIST =================
 async function updateFiles() {
     try {
-        const res = await fetch("/files-data"); // Backend endpoint returning JSON array of filenames
+        const res = await fetch("/files-data");
         const files = await res.json();
 
         const tbody = document.getElementById("filesBody");
@@ -42,34 +63,54 @@ async function updateFiles() {
         if (!files.length) {
             emptyMsg.style.display = "block";
             return;
-        } else {
-            emptyMsg.style.display = "none";
         }
+
+        emptyMsg.style.display = "none";
 
         files.forEach(filename => {
             const row = document.createElement("tr");
 
-            row.innerHTML = `
-                <td>
-                    <a href="/uploads/${encodeURIComponent(filename)}" target="_blank">
-                        ${filename}
-                    </a>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-delete"
-                        onclick='deleteFile(${JSON.stringify(filename)}, this)'>
-                        Delete
-                    </button>
-                </td>
-            `;
+            // ===== filename cell (click to preview) =====
+            const nameTd = document.createElement("td");
+
+            const link = document.createElement("a");
+            link.href = "#";
+            link.className = "file-link";
+            link.textContent = filename;
+
+            link.addEventListener("click", (e) => {
+                e.preventDefault();
+                previewFile(filename);
+            });
+
+            nameTd.appendChild(link);
+
+            // ===== actions cell =====
+            const actionTd = document.createElement("td");
+
+            const btn = document.createElement("button");
+            btn.className = "btn btn-sm btn-delete";
+            btn.textContent = "Delete";
+
+            btn.addEventListener("click", () => {
+                deleteFile(filename, btn);
+            });
+
+            actionTd.appendChild(btn);
+
+            // ===== append row =====
+            row.appendChild(nameTd);
+            row.appendChild(actionTd);
 
             tbody.appendChild(row);
         });
+
     } catch (err) {
         console.error("Failed to fetch files:", err);
     }
 }
 
-// ================= AUTO-REFRESH =================
+
+// ================= AUTO REFRESH =================
 updateFiles();
-setInterval(updateFiles, 5000); // refresh every 5 seconds
+setInterval(updateFiles, 5000);

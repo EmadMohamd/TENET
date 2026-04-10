@@ -1,0 +1,28 @@
+/* clickable filename (same as plugins) */
+.file-link {
+    color: #60a5fa;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.file-link:hover {
+    text-decoration: underline;
+}
+
+/* modal styling (same look as plugin modal) */
+.upload-modal {
+    background: #020617 !important;
+    color: #e5e7eb !important;
+}
+
+/* preview content */
+#filePreviewBody {
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* images */
+#filePreviewBody img {
+    max-width: 100%;
+}
