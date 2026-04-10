@@ -309,7 +309,7 @@ def agent_create():
     if existing_username:
         return {"error": "Username already exists"}, 400
 
-
+    task_uuid = str(uuid.uuid4())
     db.execute(
         "INSERT INTO USERS (username, password, role) VALUES (?, ?, ?)",
         (username, password, "agent")
@@ -329,8 +329,8 @@ def agent_create():
 
     db = get_db()
     db.execute(
-        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
-        (log_uuid, current_time, "administrator",f"Created a new agent {id_number}", "Info"))
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level, task_id) VALUES (?, ?, ?, ?, ?,?)",
+        (log_uuid, current_time, "administrator",f"Created a new agent: {id_number}", "Info",task_uuid))
     db.commit()
     return ({"status":"created"}) ,200
 
@@ -388,8 +388,8 @@ def add_task():
     current_time = datetime.now(timezone.utc)
     db = get_db()
     db.execute(
-        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
-        (log_uuid, current_time, "administrator",f"Created a new task, Task_UUID: {task_uuid}", "Info"))
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level,task_id) VALUES (?, ?, ?, ?, ?, ?)",
+        (log_uuid, current_time, "administrator",f"Created a new task", "Info",task_uuid))
     db.commit()
 
     return jsonify({"status": "accepted", "uuid": task_uuid})
@@ -572,8 +572,8 @@ def run_plugin():
     current_time = datetime.now(timezone.utc)
     db = get_db()
     db.execute(
-        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
-        (log_uuid, current_time, "administrator",f"Executed plugin : {plugin_name} Task_UUID: {task_uuid}", "Info"))
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level,task_id) VALUES (?, ?, ?, ?, ?, ?)",
+        (log_uuid, current_time, "administrator",f"Executed plugin : {plugin_name}", "Info",task_uuid))
     db.commit()
 
     return redirect(url_for('plugins_list'))
@@ -638,8 +638,8 @@ def login():
         current_time = datetime.now(timezone.utc)
         db = get_db()
         db.execute(
-            "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
-            (log_uuid, current_time, "None", f"Failed Login 3 Times, IP: {ip}", "Critical"))
+            "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level,task_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (log_uuid, current_time, "None", f"Failed Login 3 Times, IP: {ip}", "Critical", "None"))
         db.commit()
         return "Too many attempts from this IP"
 
@@ -879,10 +879,8 @@ def get_map():
 
     # Create base map
     m = folium.Map(location=[20, 0], zoom_start=1)
-    print(ips)
     for ip in ips:
         ip_result = get_location(ip)
-        print(ip_result)
         if ip_result:
             lat, lon, city, country = ip_result
 
@@ -963,7 +961,7 @@ def dashboard():
 def get_alerts():
     db = get_db()
     rows = db.execute("""
-        SELECT log_id, timestamp, role, log_message, alert_level
+        SELECT log_id, timestamp, role, log_message, alert_level, task_id
         FROM logs
         ORDER BY timestamp DESC
     """).fetchall()
@@ -975,6 +973,7 @@ def get_alerts():
             "role": t["role"],
             "log_message": t["log_message"],
             "alert_level": t["alert_level"],
+            "task_id": t["task_id"],
         }
         for t in rows
     }
@@ -1109,8 +1108,8 @@ def revshell():
     current_time = datetime.now(timezone.utc)
     db = get_db()
     db.execute(
-        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level) VALUES (?, ?, ?, ?, ?)",
-        (log_uuid, current_time, "administrator", f"Created a new Reverse shell, Task_UUID: {task_uuid}", "Info"))
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level,task_id) VALUES (?, ?, ?, ?, ?)",
+        (log_uuid, current_time, "administrator", f"Created a new Reverse shell", "Info",task_uuid))
     db.commit()
 
     return jsonify({"status": "executed"})

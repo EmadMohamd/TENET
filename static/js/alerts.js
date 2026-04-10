@@ -12,7 +12,7 @@ async function updateAlerts() {
             const log_message = (t.log_message || "").toLowerCase();
             const role = t.role;
             const alert_level = (t.alert_level || "").toLowerCase();
-
+            const task_id = t.task_id;
             const row = document.createElement("tr");
 
 
@@ -34,6 +34,7 @@ async function updateAlerts() {
                 <td>${timestamp}</td>
                 <td>${role}</td>
                 <td>${alert_level}</td>
+                <td>${task_id}</td>
             `;
 
             tbody.appendChild(row);
