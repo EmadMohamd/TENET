@@ -107,7 +107,9 @@ updatePieChartTasks();
 updateBarChart();
 updatePieChart();
 updatePieChartTasks
+updateMap
 setInterval(() => {
+    updateMap
     updateBarChart();
     updatePieChart();
     updatePieChartTasks

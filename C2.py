@@ -778,17 +778,18 @@ def get_bar_chart():
 
 @app.route("/get_map")
 def get_map():
-    ips = ['8.8.8.8']
+    ips = ['8.8.8.8','146.70.246.122','104.66.142.148','22.7.232.183']
     db = get_db()
     agent_ip = db.execute("SELECT IP FROM agents").fetchall()
     for row in agent_ip:
         ips.append(row[0])
 
     # Create base map
-    m = folium.Map(location=[20, 0], zoom_start=2)
-
+    m = folium.Map(location=[20, 0], zoom_start=1)
+    print(ips)
     for ip in ips:
         ip_result = get_location(ip)
+        print(ip_result)
         if ip_result:
             lat, lon, city, country = ip_result
 
@@ -796,33 +797,16 @@ def get_map():
                 location=[lat, lon],
                 popup=f"{ip} - {city}, {country}"
             ).add_to(m)
-        map_html = m._repr_html_()  # key line
-        return map_html
+    map_html = m._repr_html_()  # key line
+    return map_html
 
 @app.route("/info")
 @require_token(role="admin")
 def info():
     if "username" not in session:
         return redirect(url_for("login"))
-    ips =['8.8.8.8']
-    db = get_db()
-    agent_ip = db.execute("SELECT IP FROM agents").fetchall()
-    for row in agent_ip:
-        ips.append(row[0])
 
-    # Create base map
-    m = folium.Map(location=[20, 0], zoom_start=2)
-
-    for ip in ips:
-        ip_result = get_location(ip)
-        if ip_result:
-            lat, lon, city, country = ip_result
-
-            folium.Marker(
-                location=[lat, lon],
-                popup=f"{ip} - {city}, {country}"
-            ).add_to(m)
-        map_html = get_map()  # key line
+    map_html = get_map()  # key line
     return render_template("info.html",map=map_html)
 # --- Dashboard ---
 @app.route("/dashboard")
