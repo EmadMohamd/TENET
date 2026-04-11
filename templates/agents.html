@@ -51,38 +51,33 @@
         <div class="card-body">
             <div class="section-title mb-3">Live Agents</div>
 
-            <table class="table table-hover table-bordered">
+            <table class="table table-hover table-bordered" id="agentsTable">
                 <thead class="table-dark">
                     <tr>
-                        <th>Agent ID</th>
                         <th>Status</th>
+                        <th>ID</th>
+                        <th>Hostname</th>
+                        <th>User</th>
+                        <th>OS</th>
+                        <th>IP</th>
                         <th>Last Seen</th>
                         <th>Pending Tasks</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for agent in agents %}
+                    <!-- Populated dynamically by JS -->
                     <tr>
-                        <td>
-                            <a href="/agents/{{ agent.id }}" class="text-primary">{{ agent.id }}</a>
-                        </td>
-                        <td>
-                            {% if agent.status == 'online' %}
-                                <span class="badge badge-online">Online</span>
-                            {% else %}
-                                <span class="badge badge-offline">Offline</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ agent.last_seen }}</td>
-                        <td>{{ agent.pending_tasks }}</td>
+                        <td colspan="8" class="text-center text-muted">Loading agents...</td>
                     </tr>
-                    {% endfor %}
                 </tbody>
             </table>
 
         </div>
     </div>
 </div>
+
+<!-- ================= JS ================= -->
+<script src="{{ url_for('static', filename='js/agents.js') }}"></script>
 
 </body>
 </html>
