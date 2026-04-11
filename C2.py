@@ -18,7 +18,6 @@ import time
 import folium
 import requests
 from collections import Counter
-from datetime import date
 
 app = Flask(__name__)
 load_dotenv()
@@ -211,6 +210,10 @@ def agents_data():
             last_seen = last_seen.replace(tzinfo=timezone.utc)
 
         online = (now - last_seen).total_seconds() <= AGENT_ONLINE_TIMEOUT
+        pending_tasks = db.execute("""
+            SELECT COUNT(*) FROM tasks
+            WHERE agent_id = ? AND status = 'pending'
+        """, (row["id"],)).fetchone()[0]
 
         data.append({
             "id": row["id"],
@@ -219,7 +222,8 @@ def agents_data():
             "os": row["os"],
             "ip": row["ip"],
             "last_seen": last_seen.timestamp(),
-            "online": online
+            "online": online,
+            "pending_tasks": pending_tasks
         })
 
     return jsonify(data)
@@ -231,35 +235,7 @@ def agents_data():
 def agents_list():
     if "username" not in session:
         return redirect(url_for("login"))
-
-    now = datetime.now(timezone.utc)
-    agent_rows = []
-
-    db = get_db()
-    agents = db.execute("SELECT * FROM agents").fetchall()
-
-    for agent in agents:
-        last_seen = datetime.fromisoformat(agent["last_seen"])
-
-        # Ensure timezone-aware
-        if last_seen.tzinfo is None:
-            last_seen = last_seen.replace(tzinfo=timezone.utc)
-
-        online = (now - last_seen).total_seconds() <= AGENT_ONLINE_TIMEOUT
-
-        pending_tasks = db.execute("""
-            SELECT COUNT(*) FROM tasks
-            WHERE agent_id = ? AND output IS NULL
-        """, (agent["id"],)).fetchone()[0]
-
-        agent_rows.append({
-            "id": agent["id"],
-            "status": "online" if online else "offline",
-            "last_seen": last_seen.strftime("%Y-%m-%d %H:%M:%S"),
-            "pending_tasks": pending_tasks
-        })
-
-    return render_template('agents.html', agents=agent_rows)
+    return render_template('agents.html')
 
 
 # --- Agent detail page ---
