@@ -47,6 +47,22 @@
 
 <!-- ================= MAIN ================= -->
 <div class="main">
+    <!-- ===== AGENT FILTERS HORIZONTAL ===== -->
+    <div class="filters-wrapper d-flex gap-2 align-items-center">
+        <input type="text" class="form-control filter-input" id="filterAgentID" placeholder="Agent ID">
+        <input type="text" class="form-control filter-input" id="filterUser" placeholder="User">
+        <select class="form-select filter-input" id="filterOS">
+            <option value="">OS</option>
+            <option value="windows">Windows</option>
+            <option value="linux">Linux</option>
+            <option value="mac">Mac</option>
+        </select>
+        <select class="form-select filter-input" id="filterAgentStatus">
+            <option value="">Status</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+        </select>
+    </div>
     <div class="card mb-4">
         <div class="card-body">
             <div class="section-title mb-3">Live Agents</div>

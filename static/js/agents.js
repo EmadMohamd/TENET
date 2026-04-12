@@ -59,5 +59,48 @@ async function updateAgents() {
     }
 }
 
-setInterval(updateAgents, 5000); // refresh every 5s
+/* ================= AGENT FILTERS ================= */
+const agentsTableBody = document.querySelector("table tbody");
+
+const agentFilters = [
+    document.getElementById("filterAgentID"),
+    document.getElementById("filterUser"),
+    document.getElementById("filterOS"),
+    document.getElementById("filterAgentStatus")
+];
+
+function applyAgentFilters() {
+    const agentIdFilter = agentFilters[0].value.toLowerCase();
+    const userFilter = agentFilters[1].value.toLowerCase();
+    const osFilter = agentFilters[2].value.toLowerCase();
+    const statusFilter = agentFilters[3].value.toLowerCase();
+
+    for (let row of agentsTableBody.rows) {
+        const agentId = row.cells[1].innerText.toLowerCase();
+        const user = row.cells[3].innerText.toLowerCase();
+        const os = row.cells[4].innerText.toLowerCase();
+        const status = row.dataset.status;
+
+        const agentMatch = agentIdFilter === "" || agentId.includes(agentIdFilter);
+        const userMatch = userFilter === "" || user.includes(userFilter);
+        const osMatch = osFilter === "" || os.includes(osFilter);
+        const statusMatch = statusFilter === "" || status === statusFilter;
+
+        if (agentMatch && userMatch && osMatch && statusMatch) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    }
+}
+
+
+// live filtering
+agentFilters.forEach(input => {
+    input.addEventListener("input", applyAgentFilters);
+    input.addEventListener("change", applyAgentFilters);
+});
+
+
+setInterval(updateAgents, 3000); // refresh every 5s
 updateAgents(); // initial load
