@@ -315,13 +315,13 @@ Tasks are:
 ```
 project/
 │
-├── C2.py              # Main Flask server
-├── c2.db         # SQLite database
+├── app.py              # Main Flask server
+├── database.db         # SQLite database
 ├── upload/             # Uploaded files
 ├── plugins/            # Server-side plugins
 ├── tool/               # Helper tools & plugin resources
 ├── templates/          # HTML dashboard
-└── static/          # CSS / JS assets
+└── static/             # CSS / JS assets
 ```
 
 ---
@@ -383,8 +383,5 @@ http://0.0.0.0:5000
 * Role-Based Access Control (RBAC)
 * Agent grouping/tagging
 * WebSocket real-time updates
-* Audit logging system
-* Cron-style scheduling
 * Retry/failure handling
 * Docker deployment
-* Multi-admin alerting
