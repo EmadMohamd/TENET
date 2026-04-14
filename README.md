@@ -1,28 +1,29 @@
 # 🛰️ Remote Agent Control Server
 
-A **Flask-based command-and-control style server** for managing remote agents, dispatching tasks, receiving results, and monitoring agent status in real time.
+A **Flask-based command-and-control style server** designed for managing remote agents, dispatching tasks, collecting results, and monitoring system activity in real time.
 
-> ⚠️ Intended for **educational, research, and controlled automation environments only**.
+> ⚠️ Intended strictly for **educational, research, and controlled automation environments only**
 
 ---
 
 # 🚀 Features
 
-## 🔐 Encrypted Communication
+## 🔐 Secure Communication
 
-* Agents communicate using **Fernet symmetric encryption**
-* Secure transmission of:
+* All agent communication is encrypted using **Fernet symmetric encryption**
+* Protects:
 
-  * Beacons
-  * Task results
+  * Beacon data
+  * Tasking instructions
+  * Execution results
 * Prevents plaintext interception
-* **API key required** for privileged operations
+* Sensitive operations require an **API key**
 
 ---
 
-## 👤 Agent Creation & Management
+## 👤 Agent Management
 
-* Create agents directly from the dashboard
+* Create and manage agents directly from the dashboard
 * Required fields:
 
   * Agent ID
@@ -32,26 +33,27 @@ A **Flask-based command-and-control style server** for managing remote agents, d
 
   * Stored in SQLite
   * Assigned a default role (`agent`)
-* Enables controlled onboarding of new clients
+* Enables structured and controlled onboarding
 
 ---
 
-## 🗄️ SQLite Database Integration
+## 🗄️ Database (SQLite)
 
-* Persistent storage for:
+* Lightweight, persistent storage
+* Stores:
 
   * Agents
   * Tasks
   * Users
-* Lightweight and easy to manage
+  * Scheduled & recurring task metadata
 * Survives server restarts
-* Simple schema, easy to extend
+* Easily extendable schema
 
 ---
 
-## 📡 Live Agent Monitoring
+## 📡 Real-Time Agent Monitoring
 
-Track all connected agents in real time:
+Track all active agents with:
 
 * Hostname
 * Operating system
@@ -59,39 +61,89 @@ Track all connected agents in real time:
 * IP address
 * Last seen timestamp
 
-✅ Automatic:
+### ✅ Automatic Tracking
 
 * Online/offline detection
 * Status updates via beaconing
+* Activity visibility in real time
 
 ---
 
-## 📁 File Upload Support
+## 🚨 Alerts & Logging (`/alerts`)
 
-* Upload files directly from dashboard
+Centralized logging and alerting system.
+
+### 📄 Info Logs
+
+* Task creation
+* Agent creation
+* Plugin execution
+
+### ❗ Critical Logs
+
+* Reverse shell creation events
+* Low task execution rates
+* Agents offline beyond threshold
+* Multiple failed login attempts
+
+### 📬 Telegram Integration
+
+* Logs are sent daily to a **Telegram bot**
+* Admins receive summaries of:
+
+  * System activity
+  * Security alerts
+  * Agent health
+
+---
+
+## 📊 Analytics Dashboard (`/info`)
+
+Visual insights into system performance.
+
+### 🌍 Agent Map
+
+* Displays IP-based geolocation of agents
+
+### 📈 Task Execution Chart
+
+* Bar chart showing number of executed tasks over time
+
+### 🥧 Pie Charts
+
+* Execution success rate per agent
+* Online vs offline agent distribution
+
+---
+
+## 📁 File Management
+
+* Upload files via dashboard
 * Agents can:
 
   * Download files
-  * Execute or store them locally
+  * Execute them
+  * Store locally
 
 ---
 
-## 🔑 Dual Authentication System
+## 🔑 Authentication System
 
-### 🧑‍💻 Admin Dashboard
+### 🧑‍💻 Admin Access
 
 * Username/password login
-* Full control over:
+* Full access to:
 
   * Agents
   * Tasks
   * Files
   * Plugins
+  * Logs & analytics
 
 ### 🤖 Agent Authentication
 
-* Token-based authentication
-* Issued upon successful login
+* Token-based system
+* Issued upon login
 * Used for secure communication
 
 ---
@@ -102,108 +154,94 @@ Track all connected agents in real time:
 * Executed **in-memory on agents**
 * No redeployment required
 
-💡 Ideal for:
+💡 Use cases:
 
 * Extending functionality
-* Rapid testing
+* Rapid experimentation
 * Modular operations
 
 ---
 
-# 📦 Project Structure
+## 🖥️ Dashboard Enhancements (`/dashboard`)
 
-```
-project/
-│
-├── app.py              # Main Flask server
-├── database.db        # SQLite database
-├── upload/            # Uploaded files
-├── plugins/           # Server-side plugins
-├── templates/         # HTML dashboard
-└── static/            # CSS / JS assets
-```
+### ⚡ Task Creation
 
----
+* Create and assign tasks to agents
+* Supported types:
 
-# ⚙️ How It Works
-
-## 1️⃣ Agent Creation
-
-* Admin creates an agent via dashboard
-* Stored in database with:
-
-  * ID
-  * Credentials
-  * Default role (`agent`)
+  * `shell`
+  * `download`
+  * `upload`
+  * `sleep`
+  * `plugin`
+  * `revshell`
 
 ---
 
-## 2️⃣ Agent Login
+### 🔌 Reverse Shell Support
 
-* Agent sends JSON credentials
+* Launch reverse shell tasks directly from dashboard
+* Specify:
+
+  * Target agent ID
+  * Listening port
+
+---
+
+### ⏱️ Task Scheduling
+
+* Schedule tasks for future execution
+* Define exact execution time
+* Ideal for:
+
+  * Delayed operations
+  * Coordinated workflows
+  * Off-peak execution
+
+---
+
+### 🔁 Recurring Tasks
+
+* Automate repeated execution
+* Supported intervals:
+
+  * Minutes
+  * Hourly
+  * Daily
+  * Custom intervals
+
+### ⚙️ Scheduling Behavior
+
+* Tasks stored in database
+* Executed when agents beacon after scheduled time
+* Recurring tasks automatically re-queued
+* Fully integrated with task dispatch system
+
+---
+
+## 📡 Task Lifecycle
+
+### 1️⃣ Agent Creation
+
+* Admin creates agent
+* Stored with credentials and role
+
+---
+
+### 2️⃣ Agent Login
+
+* Agent sends credentials (JSON)
 * Server:
 
-  * Validates credentials
+  * Validates
   * Registers/updates agent
-  * Returns authentication token
+  * Returns auth token
 
 ---
 
-## 3️⃣ Beaconing
+### 3️⃣ Beaconing (`/beacon`)
 
-* Agents periodically POST encrypted data to `/beacon`
-
-Server actions:
-
-* Decrypt payload
-* Update `last_seen`
-* Mark agent as online
-* Return pending task (if any)
-
----
-
-## 4️⃣ Task Dispatching
-
-* Tasks stored in SQLite
-* Delivered when agent beacons
-
-### Supported task types:
-
-* `shell` → execute command
-* `download` → fetch file
-* `upload` → send file to server
-* `sleep` → adjust beacon interval
-* `plugin` → execute module
-
----
-
-## 5️⃣ Result Submission
-
-* Agents POST encrypted results to `/result`
-* Server:
-
-  * Decrypts data
-  * Stores output in database
-  * Marks task as completed
-
----
-
-## 6️⃣ Admin Dashboard
-
-Admins can:
-
-* 👀 View live agents
-* 📋 Manage tasks
-* 📁 Upload/download files
-* 🧩 Execute plugins
-* ➕ Create new agents
-* 📡 Monitor activity in real time
-
----
-
-# 🧪 Example Payloads
-
-## 📡 Agent Beacon
+Agents periodically send encrypted data:
 
 ```json
 {
@@ -214,9 +252,23 @@ Admins can:
 }
 ```
 
+Server:
+
+* Decrypts payload
+* Updates last seen
+* Marks agent online
+* Dispatches pending/scheduled tasks
+
 ---
 
-## 📬 Task Example
+### 4️⃣ Task Dispatching
+
+Tasks are:
+
+* Stored in database
+* Delivered on beacon
+
+#### Example Task
 
 ```json
 {
@@ -225,34 +277,70 @@ Admins can:
 }
 ```
 
----
-
-## 🧩 Plugin Task
+#### Scheduled Task
 
 ```json
 {
-  "type": "download",
-  "url": "http://server:5000/plugins/test_plugin.py"
+  "type": "shell",
+  "command": "whoami",
+  "execute_at": "2026-04-15T10:00:00"
+}
+```
+
+#### Recurring Task
+
+```json
+{
+  "type": "shell",
+  "command": "whoami",
+  "interval": "1h"
 }
 ```
 
 ---
 
-# 🔧 Running the Server
+### 5️⃣ Result Submission (`/result`)
 
-## 1. Install dependencies
+* Agents send encrypted results
+* Server:
+
+  * Decrypts data
+  * Stores output
+  * Marks task completed
+
+---
+
+## 📦 Project Structure
+
+```
+project/
+│
+├── C2.py              # Main Flask server
+├── c2.db         # SQLite database
+├── upload/             # Uploaded files
+├── plugins/            # Server-side plugins
+├── tool/               # Helper tools & plugin resources
+├── templates/          # HTML dashboard
+└── static/          # CSS / JS assets
+```
+
+---
+
+## 🔧 Running the Server
+
+### 1. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 2. Set environment variable
+### 2. Set API key
 
 ```bash
 export API_KEY="your_api_key_here"
 ```
 
-## 3. Start server
+### 3. Start server
 
 ```bash
 python app.py
@@ -266,33 +354,37 @@ http://0.0.0.0:5000
 
 ---
 
-# 🛡️ Security Notes
+## 🛡️ Security Notes
 
-* 🔒 All agent communication is encrypted (Fernet)
-* 🔑 API key required for sensitive actions
+* 🔒 Encrypted communication (Fernet)
+* 🔑 API key protection for sensitive routes
 * ⚠️ Passwords should be **hashed in production**
 * ⚠️ Restrict plugin execution to trusted users
 * ⚠️ Use HTTPS in real deployments
+* ⚠️ Monitor reverse shell usage carefully
+* ⚠️ Secure Telegram bot tokens properly
 
 ---
 
-# 🔗 Dashboard Sections
+## 🔗 Dashboard Sections
 
-* **Live Agents**
-* **Tasks**
-* **Uploaded Files**
-* **Plugins**
-* **Create Agent**
+* Live Agents
+* Tasks
+* Uploaded Files
+* Plugins
+* Create Agent
+* Alerts & Logs (`/alerts`)
+* Analytics (`/info`)
 
 ---
 
-# 💡 Future Improvements (Optional Ideas)
+## 💡 Future Improvements
 
-* Role-based access control (RBAC)
+* Role-Based Access Control (RBAC)
 * Agent grouping/tagging
-* WebSocket live updates (instead of polling)
-* Audit logs for actions
-* Payload builder for agents
+* WebSocket real-time updates
+* Audit logging system
+* Cron-style scheduling
+* Retry/failure handling
 * Docker deployment
-
----
+* Multi-admin alerting
