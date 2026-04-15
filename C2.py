@@ -274,6 +274,7 @@ def agent_create():
     username = request.json.get("username")
     password = request.json.get("password")
     id_number = request.json.get("id")
+    agent_group = request.json.get("group")
 
     db = get_db()
     existing_username = db.execute(
@@ -301,6 +302,7 @@ def agent_create():
         lines[22] = f'username = "{username}"\n'
         lines[23] = f'password = "{password}"\n'
         lines[28] = f'AGENT_ID = "{id_number}"\n'
+        lines[29] = f'AGENT_GROUP = "{agent_group}"\n'
 
         f_out.writelines(lines)
 
@@ -345,18 +347,37 @@ def add_task():
     command = data.get("task")
     scheduled_at = data.get("scheduled_at")
     recurring_every = data.get("recurring_every")
+    agent_group = data.get("agent_group")
+    print("agent_group",agent_group)
+    task_uuid = str(uuid.uuid4())
 
     if recurring_every is None:
         recurring_every = "N/A"
 
-    task_uuid = str(uuid.uuid4())
+    if not agent_group:
+        print("agent_group is none")
+        db = get_db()
+        db.execute("""
+            INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
+            VALUES (?, ?, ?, NULL, ?, ?)
+        """, (task_uuid, agent_id, json.dumps(command),scheduled_at,recurring_every))
+        db.commit()
 
-    db = get_db()
-    db.execute("""
-        INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
-        VALUES (?, ?, ?, NULL, ?, ?)
-    """, (task_uuid, agent_id, json.dumps(command),scheduled_at,recurring_every))
-    db.commit()
+    if agent_group:
+        print("agent_group",agent_group)
+        db = get_db()
+        agents_in_group = db.execute(
+            "SELECT id FROM agents WHERE agent_group = ?", (agent_group,)).fetchall()
+        for row in agents_in_group:
+            task_uuid = str(uuid.uuid4())
+            db.execute("""
+                    INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
+                    VALUES (?, ?, ?, NULL, ?, ?)
+                    """, (task_uuid, row[0], json.dumps(command), scheduled_at, recurring_every))
+            db.commit()
+    if agent_id is None and agent_group is None:
+        print("agent_group is none and agent_id is none")
+        return jsonify({"status": "Error"}) ,500
     if recurring_every and recurring_every != "N/A":
         thread = threading.Thread(
         target=recurring_scheduler, args=(task_uuid, recurring_every, agent_id, command),daemon=True)
@@ -690,15 +711,16 @@ def login():
 
         if not agent:
             db.execute("""
-                INSERT INTO agents (id, hostname, user, os, ip, last_seen)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO agents (id, hostname, user, os, ip, last_seen,agent_group)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 agent_id,
                 data.get("hostname"),
                 data.get("user"),
                 data.get("os"),
                 request.remote_addr,
-                datetime.utcnow().isoformat()
+                datetime.utcnow().isoformat(),
+                data.get("agent_group")
             ))
         else:
             db.execute("""

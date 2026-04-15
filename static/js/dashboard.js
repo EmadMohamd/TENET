@@ -184,6 +184,7 @@ document.getElementById("taskForm").addEventListener("submit", async (e) => {
 
     // --- Get form values ---
     const agentId = document.getElementById("agentId").value.trim();
+    const agentGroup = document.getElementById("agentGroup").value.trim();
     const type = document.getElementById("taskType").value;
     const cmd = document.getElementById("taskCommand").value.trim();
     const extra = document.getElementById("taskExtra").value.trim();
@@ -228,7 +229,8 @@ const bodyData = {
         id: agentId,
         task: task,
         scheduled_at: scheduledAtInput,
-        recurring_every: recurringEvery
+        recurring_every: recurringEvery,
+        agent_group: agentGroup
     };
 
 try {
@@ -265,6 +267,7 @@ document.getElementById("createAgentForm").addEventListener("submit", async (e) 
 
     const payload = {
         id: document.getElementById("newAgentId").value.trim(),
+        group: document.getElementById("newAgentGroup").value.trim(),
         username: document.getElementById("newUsername").value.trim(),
         password: document.getElementById("newPassword").value.trim()
     };
