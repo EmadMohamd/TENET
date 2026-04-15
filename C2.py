@@ -375,9 +375,8 @@ def add_task():
                     VALUES (?, ?, ?, NULL, ?, ?)
                     """, (task_uuid, row[0], json.dumps(command), scheduled_at, recurring_every))
             db.commit()
-    if agent_id is None and agent_group is None:
-        print("agent_group is none and agent_id is none")
-        return jsonify({"status": "Error"}) ,500
+    if not agent_id and not agent_group is None:
+        return jsonify({"status": "Error No Agent ID or GROUP set"}) ,500
     if recurring_every and recurring_every != "N/A":
         thread = threading.Thread(
         target=recurring_scheduler, args=(task_uuid, recurring_every, agent_id, command),daemon=True)

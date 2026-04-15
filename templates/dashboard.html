@@ -192,6 +192,19 @@
     window.API_KEY = "{{ api_key }}";
 </script>
 
+<script>
+const agentId = document.getElementById("agentId");
+const agentGroup = document.getElementById("agentGroup");
+
+agentId.addEventListener("input", () => {
+    agentGroup.disabled = agentId.value.trim() !== "";
+});
+
+agentGroup.addEventListener("input", () => {
+    agentId.disabled = agentGroup.value.trim() !== "";
+});
+</script>
+
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>
