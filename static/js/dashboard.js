@@ -49,7 +49,7 @@ async function updateAgents() {
         });
 
         // apply filters AFTER table is built
-        applyAgentFilters();
+
 
     } catch (e) {
         console.error(e);
