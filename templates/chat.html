@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link rel="icon" type="image/png" href="/static/images/icon.png">
+
+
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --accent: #3b82f6;
+            --text-main: #e5e7eb;
+            --border: #334155;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Main Chat Viewport */
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 60px 20%; /* Wide gutters for centered readability */
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Responsive adjustment for smaller screens */
+        @media (max-width: 768px) {
+            #messages { padding: 40px 5%; }
+            .input-area { padding: 20px 5% 30px 5%; }
+        }
+
+        /* Message Bubbles */
+        .msg {
+            max-width: 75%;
+            padding: 16px 20px;
+            font-size: 16px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .msg-user {
+            align-self: flex-end;
+            background: var(--accent);
+            color: white;
+            border-radius: 20px 20px 4px 20px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+        }
+
+        .msg-ai {
+            align-self: flex-start;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 20px 20px 20px 4px;
+        }
+
+        /* Bottom Controls Area */
+        .input-area {
+            padding: 20px 20% 40px 20%;
+            background: linear-gradient(transparent, var(--bg-dark) 30%);
+        }
+
+        .suggestions-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .suggestion-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .suggestion-btn:hover {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent);
+        }
+
+        .input-wrapper {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            display: flex;
+            padding: 12px 20px;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+
+        .input-wrapper input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 16px;
+            outline: none;
+            padding: 5px 0;
+        }
+
+        .input-wrapper button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 15px;
+        }
+
+        .input-wrapper button:hover {
+            filter: brightness(1.1);
+        }
+
+        /* Scrollbar Styling */
+        #messages::-webkit-scrollbar { width: 6px; }
+        #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        .sidebar {
+        height: 60px;              /* top navbar height */
+        width: 100%;               /* full width */
+        position: fixed;
+        top: 0;
+        left: 0;
+        display: flex;             /* horizontal layout */
+        align-items: center;       /* vertical centering */
+        justify-content: flex-start;
+        background-color: #020617 !important;
+        border-bottom: 1px solid #334155;
+        padding: 0 20px;
+        z-index: 1000;
+        }
+
+        .sidebar h4 {
+            color: #cbd5f5;
+            margin: 0 20px 0 0;        /* spacing to the right */
+        }
+
+        .sidebar a {
+            padding: 0 15px;
+            color: #cbd5f5 !important;
+            text-decoration: none;
+            font-size: 15px;
+            line-height: 60px;         /* vertically center text */
+        }
+
+        .sidebar a:hover {
+            background-color: #1e293b !important;
+        }
+    </style>
+
+</head>
+<body>
+<!-- ================= NavBar ================= -->
+    <div class="sidebar">
+        <h4>TENET</h4>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/info">Info</a>
+        <a href="/alerts">Alerts & Logging</a>
+        <a href="/agents">Live Agents</a>
+        <a href="/tasks">Tasks</a>
+        <a href="/uploads">Uploaded Files</a>
+        <a href="/plugins">Plugins</a>
+        <a href="/chat">AI Assistant</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+
+    <div id="messages">
+        </div>
+
+    <div class="input-area">
+        <div id="suggestions" class="suggestions-row"></div>
+        <div class="input-wrapper">
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            endpoint: "/ai/chat",
+            suggestions: [
+                "Which agents are offline?",
+                "What is the execution Success rate?",
+                "Show recent alerts",
+                "Show Pending Tasks?"
+            ]
+        };
+
+        const messageContainer = document.getElementById("messages");
+        const userInput = document.getElementById("user-input");
+        const sendBtn = document.getElementById("send-btn");
+        const suggestionBox = document.getElementById("suggestions");
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[m]);
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement("div");
+            div.className = `msg ${type === "user" ? "msg-user" : "msg-ai"}`;
+            div.innerHTML = escapeHTML(text);
+            messageContainer.appendChild(div);
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+
+        function renderSuggestions() {
+            suggestionBox.innerHTML = "";
+            CONFIG.suggestions.forEach(q => {
+                const btn = document.createElement("button");
+                btn.className = "suggestion-btn";
+                btn.textContent = q;
+                btn.onclick = () => send(q);
+                suggestionBox.appendChild(btn);
+            });
+        }
+
+        async function send(msg = null) {
+            const text = msg || userInput.value.trim();
+            if (!text) return;
+
+            addMessage(text, "user");
+            userInput.value = "";
+
+            // Thinking state
+            const loadingDiv = document.createElement("div");
+            loadingDiv.className = "msg msg-ai";
+            loadingDiv.textContent = "...";
+            messageContainer.appendChild(loadingDiv);
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+
+            try {
+                const res = await fetch(CONFIG.endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const data = await res.json();
+                loadingDiv.remove();
+                addMessage(data.reply || "No response received.", "ai");
+
+            } catch (e) {
+                loadingDiv.remove();
+                addMessage("Error connecting to server.", "ai");
+            }
+        }
+
+        sendBtn.onclick = () => send();
+        userInput.onkeypress = (e) => { if (e.key === "Enter") send(); };
+
+        window.onload = () => {
+            addMessage("How can I help you today?", "ai");
+            renderSuggestions();
+        };
+    </script>
+</body>
+</html>

@@ -29,10 +29,14 @@ A **Flask-based command-and-control style server** designed for managing remote 
   * Agent ID
   * Username
   * Password
+* Optional:
+
+  * **Agent Group**
 * Agents are:
 
   * Stored in SQLite
   * Assigned a default role (`agent`)
+  * Can be logically grouped using `agent_group`
 * Enables structured and controlled onboarding
 
 ---
@@ -46,8 +50,20 @@ A **Flask-based command-and-control style server** designed for managing remote 
   * Tasks
   * Users
   * Scheduled & recurring task metadata
-* Survives server restarts
-* Easily extendable schema
+
+### 🆕 Agents Table Update
+
+The `agents` table includes:
+
+* `id`
+* `hostname`
+* `user`
+* `os`
+* `ip`
+* `last_seen`
+* `agent_group` ✅ *(NEW)*
+
+This enables tasking and filtering based on logical groupings.
 
 ---
 
@@ -60,6 +76,7 @@ Track all active agents with:
 * Username
 * IP address
 * Last seen timestamp
+* Agent group
 
 ### ✅ Automatic Tracking
 
@@ -167,14 +184,58 @@ Visual insights into system performance.
 ### ⚡ Task Creation
 
 * Create and assign tasks to agents
-* Supported types:
 
-  * `shell`
-  * `download`
-  * `upload`
-  * `sleep`
-  * `plugin`
-  * `revshell`
+### 🎯 Targeting Modes (NEW)
+
+Tasks can now be dispatched using **one of two targeting methods**:
+
+* **By Agent ID**
+* **By Agent Group**
+
+⚠️ **Mutual Exclusivity Rule**
+
+* You must provide **either**:
+
+  * `agent_id`
+  * **OR** `agent_group`
+* Providing both is **not allowed**
+* Providing neither is **not allowed**
+
+This ensures clear and predictable task routing.
+
+---
+
+### 📦 Supported Task Types
+
+* `shell`
+* `download`
+* `upload`
+* `sleep`
+* `plugin`
+* `revshell`
+
+---
+
+### 👥 Group-Based Tasking (NEW)
+
+* Tasks can be assigned to all agents within a specific `agent_group`
+* Enables:
+
+  * Bulk operations
+  * Segmented tasking
+  * Role-based execution patterns
+
+#### Example
+
+```json
+{
+  "type": "shell",
+  "command": "whoami",
+  "agent_group": "red_team"
+}
+```
+
+✔️ Automatically dispatched to **all agents** in that group upon beacon
 
 ---
 
@@ -192,11 +253,11 @@ Visual insights into system performance.
 
 * Schedule tasks for future execution
 * Define exact execution time
-* Ideal for:
 
-  * Delayed operations
-  * Coordinated workflows
-  * Off-peak execution
+Works with:
+
+* Agent ID targeting
+* ✅ Agent Group targeting *(NEW)*
 
 ---
 
@@ -209,6 +270,10 @@ Visual insights into system performance.
   * Hourly
   * Daily
   * Custom intervals
+
+✔️ Fully compatible with **group-based targeting**
+
+---
 
 ### ⚙️ Scheduling Behavior
 
@@ -224,7 +289,7 @@ Visual insights into system performance.
 ### 1️⃣ Agent Creation
 
 * Admin creates agent
-* Stored with credentials and role
+* Optionally assigns `agent_group`
 
 ---
 
@@ -257,7 +322,11 @@ Server:
 * Decrypts payload
 * Updates last seen
 * Marks agent online
-* Dispatches pending/scheduled tasks
+* Dispatches:
+
+  * Pending tasks
+  * Scheduled tasks
+  * ✅ Group-based tasks *(NEW)*
 
 ---
 
@@ -268,14 +337,36 @@ Tasks are:
 * Stored in database
 * Delivered on beacon
 
-#### Example Task
+### 🎯 Targeting Logic (UPDATED)
+
+* If `agent_id` is set → task sent to single agent
+* If `agent_group` is set → task sent to all matching agents
+
+---
+
+#### Example (Single Agent)
 
 ```json
 {
   "type": "shell",
-  "command": "whoami"
+  "command": "whoami",
+  "agent_id": "agent1"
 }
 ```
+
+---
+
+#### Example (Group Task)
+
+```json
+{
+  "type": "shell",
+  "command": "hostname",
+  "agent_group": "blue_team"
+}
+```
+
+---
 
 #### Scheduled Task
 
@@ -283,9 +374,12 @@ Tasks are:
 {
   "type": "shell",
   "command": "whoami",
-  "execute_at": "2026-04-15T10:00:00"
+  "execute_at": "2026-04-15T10:00:00",
+  "agent_group": "ops"
 }
 ```
+
+---
 
 #### Recurring Task
 
@@ -293,7 +387,8 @@ Tasks are:
 {
   "type": "shell",
   "command": "whoami",
-  "interval": "1h"
+  "interval": "1h",
+  "agent_group": "monitoring"
 }
 ```
 
@@ -326,34 +421,6 @@ project/
 
 ---
 
-## 🔧 Running the Server
-
-### 1. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Set API key
-
-```bash
-export API_KEY="your_api_key_here"
-```
-
-### 3. Start server
-
-```bash
-python app.py
-```
-
-Server runs on:
-
-```
-http://0.0.0.0:5000
-```
-
----
-
 ## 🛡️ Security Notes
 
 * 🔒 Encrypted communication (Fernet)
@@ -381,7 +448,7 @@ http://0.0.0.0:5000
 ## 💡 Future Improvements
 
 * Role-Based Access Control (RBAC)
-* Agent grouping/tagging
+* Advanced agent grouping (multi-group tagging)
 * WebSocket real-time updates
 * Retry/failure handling
 * Docker deployment

@@ -20,6 +20,7 @@ import requests
 from collections import Counter
 import string
 import difflib
+from google import genai
 
 app = Flask(__name__)
 load_dotenv()
@@ -56,26 +57,70 @@ werk_log.propagate = False
 
 
 # --- Configuration ---
+
 IP = "192.168.1.41"
 PORT = 5000
-UPLOAD_FOLDER = "./upload"
 API_KEY = os.getenv("API_KEY")
-DATABASE = "c2.db"
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
 cipher = Fernet(SECRET_KEY)
+app.secret_key = SECRET_KEY
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=GEMINI_API_KEY)
+AGENT_ALERT_TIMEOUT = 5
+SYSTEM_PROMPT = """
+You are a Security Operations Analytics Assistant for a remote agent management system.
+
+Your role is strictly limited to:
+- Analyzing system data
+- Identifying patterns, anomalies, and trends
+- Providing operational insights and risk assessments
+- Summarizing system state clearly and concisely
+
+You may use the following data domains:
+- Agent metadata (hostname, OS, IP, user, last_seen, agent_group)
+- Agent status (online/offline, beacon frequency)
+- Task metadata (type, status, success/failure rates, scheduling, recurrence)
+- Logs and alerts (info and critical events)
+- Authentication activity
+- System-wide analytics (distribution, execution metrics)
+
+Rules:
+- Do NOT provide instructions, commands, or execution steps
+- Do NOT suggest actions that involve interacting with agents or triggering system behavior
+- Do NOT reference or recommend any form of remote execution or control mechanisms
+- Do NOT generate payloads, commands, or configurations
+- Focus ONLY on observation, correlation, and insight
+
+Behavior Guidelines:
+- Be concise, precise, and operationally relevant
+- Highlight anomalies (e.g. offline agents, failed tasks, irregular beaconing)
+- Identify trends (e.g. declining execution rates, group-level issues)
+- Correlate events across logs, agents, and tasks when relevant
+- Prioritize critical signals over noise
+- When data is incomplete, state assumptions clearly
+
+Output Style:
+- Short, structured insights
+- Use bullet points when appropriate
+- Avoid unnecessary explanation
+- No speculation beyond available data
+
+Goal:
+Provide clear situational awareness and actionable intelligence without performing or suggesting any system interaction.
+"""
+
 #Folders & Directories
-UPLOAD_FOLDER = 'upload'
+
+DATABASE = "c2.db"
+UPLOAD_FOLDER = "./upload"
 PLUGINS_DIR = "./plugins"
 TOOLS_FOLDER = "tools"
 os.makedirs(PLUGINS_DIR, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['TOOLS_FOLDER'] = TOOLS_FOLDER
-app.secret_key = SECRET_KEY
-AGENT_ALERT_TIMEOUT = 5
-
 
 # --- Encryption functions ---
 def encrypt_data(data):
@@ -142,7 +187,6 @@ def require_token(role=None):  #  accepts role
 
         return decorated
     return wrapper
-
 
 # --- Agent beacon endpoint ---
 @app.route('/beacon', methods=['POST'])
@@ -229,7 +273,6 @@ def agents_data():
         })
 
     return jsonify(data)
-
 
 # --- Agents page ---
 @app.route('/agents/')
@@ -435,7 +478,6 @@ def recurring_scheduler(task_uuid,recurring_every,agent_id,command):
             except Exception as e:
                 print(f"Error in recurring_scheduler loop: {e}")
 
-
 def restart_recurring_tasks(app):
     """Finds all recurring tasks in the DB and starts their threads."""
     with app.app_context():
@@ -575,7 +617,6 @@ def run_plugin():
 
 def get_client_ip():
     return request.remote_addr
-
 
 def update_attempts(db, ip, success):
     record = db.execute(
@@ -997,7 +1038,8 @@ def send_telegram_logs():
 
         # 2. Format the logs into a single string
         # Using a cleaner format than just str(log) to avoid curly braces in Telegram
-        text = "LOGS:\n"+ "\n".join(f"[{log.get('timestamp', 'INFO')}] {log.get('log_message', '')}" for log in logs)
+        current_time= datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        text = f"LOGS FOR {current_time}:\n"+ "\n".join(f"[{log.get('timestamp', 'INFO')}] {log.get('log_message', '')}" for log in logs)
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         payload = {"chat_id": CHAT_ID, "text": text}
         response = requests.post(url, data=payload)
@@ -1015,7 +1057,6 @@ def alerts():
     gen_alerts()
     send_telegram_logs()
     return render_template("alerts.html")
-
 
 def gen_alerts():
     current_time = datetime.now(timezone.utc)
@@ -1302,6 +1343,88 @@ def revshell():
     db.commit()
 
     return jsonify({"status": "executed"})
+
+def ask_ai(user_message, context):
+    prompt = f"""
+    {SYSTEM_PROMPT}
+
+    Context:
+    {context}
+
+    User:
+    {user_message}
+    """
+    print("prompt:",prompt)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash-lite",
+        contents=prompt
+    )
+
+    return response.text
+
+def build_context(db):
+    agents = db.execute("""
+        SELECT id, hostname, user, ip, last_seen, agent_group
+        FROM agents
+        LIMIT 20
+    """).fetchall()
+
+    alerts = db.execute("""
+        SELECT timestamp, role, log_message, alert_level
+        FROM logs
+        ORDER BY timestamp DESC
+        LIMIT 10
+    """).fetchall()
+
+    tasks = db.execute("""
+        SELECT task_json, output, scheduled_at, recurring_every, status
+        FROM tasks
+        ORDER BY scheduled_at DESC
+        LIMIT 10
+    """).fetchall()
+
+
+    return {
+        "agents": [dict(r) for r in agents],
+        "alerts": [dict(r) for r in alerts],
+        "recent_tasks": [dict(r) for r in tasks]
+    }
+
+@app.route("/ai/chat", methods=["POST"])
+def ai_chat():
+    data = request.get_json()
+    user_message = data.get("message")
+    db = get_db()
+
+    if not user_message:
+        return jsonify({"error": "Missing message"}), 400
+
+    try:
+        # 1. Build context
+        context = build_context(db)
+
+        # 2. Ask AI
+        ai_response = ask_ai(user_message, context)
+
+        # 3. Try to extract suggestion (optional)
+        suggestion = None
+
+        if "suggestion" in ai_response:
+            # naive parse (you can improve with json.loads + validation)
+            suggestion = ai_response
+
+        return jsonify({
+            "reply": ai_response,
+            "suggestion": suggestion
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/chat')
+def chat_page():
+    return render_template('chat.html')
+
 # --- Main ---
 if __name__ == "__main__":
     restart_recurring_tasks(app)

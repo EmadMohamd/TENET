@@ -1,163 +1,238 @@
-<!-- Floating Chat Button -->
-<button id="chat-btn" style="
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    background-color: #3b82f6; /* bright blue */
-    color: white;
-    border: none;
-    font-size: 28px;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    transition: transform 0.2s;
-">💬</button>
-
-<!-- Chat Box -->
-<div id="chat-box" style="
-    display: none;
-    position: fixed;
-    bottom: 90px;
-    right: 20px;
-    width: 320px;
-    max-height: 450px;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #0f172a, #1e293b);
-    color: #e5e7eb;
-    z-index: 9999;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    font-family: 'Segoe UI', Arial, sans-serif;
-">
-    <div id="messages" style="
-        flex: 1;
-        overflow-y: auto;
-        padding: 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    "></div>
-    <div id="faq-suggestions" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 6px 12px;"></div>
-    <div style="display: flex; padding: 6px 12px; border-top: 1px solid #334155;">
-        <input id="user-input" type="text" placeholder="Type your question..." style="
-            flex: 1;
-            padding: 8px 12px;
-            border-radius: 12px;
-            border: none;
-            outline: none;
-            background-color: #334155;
-            color: #e5e7eb;
-        ">
-        <button onclick="sendMessage()" style="
-            margin-left: 6px;
-            padding: 8px 12px;
-            border-radius: 12px;
-            border: none;
-            background-color: #3b82f6;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-        ">Send</button>
-    </div>
-</div>
+<div id="ai-chat-root"></div>
 
 <script>
-const FAQ = {
-    "What is the Remote Agent Control Server?":
-        "It is a Flask-based command-and-control style server for managing remote agents, dispatching tasks, receiving results, and monitoring agents in real time. Intended for educational and controlled automation environments only.",
-    "Is this server safe to use in production?":
-        "This server is intended for research and educational purposes. Production use is not recommended without proper security measures.",
-    "How does encrypted communication work?":
-        "Agents communicate using Fernet symmetric encryption to securely transmit beacons and task results. An API key is required for privileged operations.",
-    "What kind of agents can I create?":
-        "Agents can be created directly from the dashboard, requiring an ID, username, and password. They are stored in SQLite and assigned a default role 'agent'.",
-    "How are agents stored and managed?":
-        "Agents are stored in an SQLite database with persistent information, and can be monitored and updated via the dashboard.",
-    "Which database does the server use?":
-        "The server uses SQLite to store agents, tasks, users, and related data. It is lightweight and survives server restarts.",
-    "Can I monitor agents in real time?":
-        "Yes, the dashboard displays all connected agents with hostname, OS, username, IP, and last seen timestamp. Online/offline status is updated automatically.",
-    "How do I upload files to agents?":
-        "Files can be uploaded from the dashboard. Agents can download, store, or execute these files locally.",
-    "How does the dual authentication system work?":
-        "Admins use username/password to access the dashboard. Agents use token-based authentication issued after login for secure communication.",
-    "How are plugins loaded and executed?":
-        "Python modules can be dynamically loaded and executed in-memory on agents, without redeployment, allowing modular and rapid operations."
-};
+(function () {
+    if (window.ChatWidget) return; // prevent double load
 
-const chatBtn = document.getElementById("chat-btn");
-const chatBox = document.getElementById("chat-box");
-const messagesDiv = document.getElementById("messages");
-const suggestionsDiv = document.getElementById("faq-suggestions");
+    window.ChatWidget = {
+        init(config = {}) {
+            const root = document.getElementById(config.rootId || "ai-chat-root");
+            if (!root) return;
 
-// Toggle chat visibility
-chatBtn.onclick = () => {
-    if(chatBox.style.display === "none") {
-        chatBox.style.display = "flex";
-        showSuggestions();
-    } else {
-        chatBox.style.display = "none";
-    }
-};
+            // Inject UI
+            root.innerHTML = `
+                <button class="cw-btn"><img src="/static/images/logo.png" alt="AI" /></button>
+                <div class="cw-box">
+                    <div class="cw-messages"></div>
+                    <div class="cw-suggestions"></div>
+                    <div class="cw-input">
+                        <input type="text" placeholder="Type..." />
+                        <button>Send</button>
+                    </div>
+                </div>
+            `;
 
-// Render suggestions as pill buttons (4 random from FAQ)
-function showSuggestions() {
-    suggestionsDiv.innerHTML = "";
-    const questions = Object.keys(FAQ);
-    const shuffled = questions.sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, 4); // pick 4 random questions
+            // Styles (scoped)
+            const style = document.createElement("style");
+            style.innerHTML = `
+                 .cw-btn {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 50%;
+                    background: #1e293b;
+                    border: none;
+                    padding: 0;
+                    cursor: pointer;
+                    z-index: 9999;
 
-    selected.forEach(q => {
-        const btn = document.createElement("button");
-        btn.textContent = q;
-        btn.style.background = "#1e293b";
-        btn.style.color = "#3b82f6";
-        btn.style.border = "1px solid #3b82f6";
-        btn.style.borderRadius = "16px";
-        btn.style.padding = "4px 10px";
-        btn.style.fontSize = "12px";
-        btn.style.cursor = "pointer";
-        btn.style.transition = "0.2s";
-        btn.onmouseover = () => { btn.style.background = "#3b82f6"; btn.style.color = "#fff"; };
-        btn.onmouseout = () => { btn.style.background = "#1e293b"; btn.style.color = "#3b82f6"; };
-        btn.onclick = () => sendMessage(q);
-        suggestionsDiv.appendChild(btn);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+
+                    overflow: hidden; /* IMPORTANT */
+                }
+
+                .cw-btn img {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 50%; /* extra safety */
+                    object-fit: cover;
+                    display: block;
+                }
+
+                .cw-box {
+                    display: none;
+                    position: fixed;
+                    bottom: 90px;
+                    right: 20px;
+                    width: 320px;
+                    height: 350px;
+                    max-height: 450px;
+                    background: #1e293b;
+                    color: #e5e7eb;
+                    border-radius: 12px;
+                    flex-direction: column;
+                    z-index: 9999;
+                    overflow: hidden;
+                }
+
+                .cw-messages {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                }
+
+                .cw-input {
+                    display: flex;
+                    padding: 8px;
+                    border-top: 1px solid #334155;
+                }
+
+                .cw-input input {
+                    flex: 1;
+                    background: #334155;
+                    border: none;
+                    color: white;
+                    padding: 6px;
+                }
+
+                .cw-input button {
+                    margin-left: 6px;
+                    background: #3b82f6;
+                    border: none;
+                    color: white;
+                    padding: 6px 10px;
+                }
+
+                .cw-msg-user {
+                    align-self: flex-end;
+                    background: #3b82f6;
+                    padding: 6px 10px;
+                    border-radius: 10px;
+                }
+
+                .cw-msg-ai {
+                    align-self: flex-start;
+                    background: #334155;
+                    padding: 6px 10px;
+                    border-radius: 10px;
+                }
+
+                /* Suggestion Buttons - Matching Page Style */
+                .cw-suggestions {
+                    padding: 10px;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+
+                    border-top: 1px solid rgba(51, 65, 85, 0.5);
+                }
+
+                .cw-suggestions button {
+                    font-size: 11px;
+                    font-family: inherit;
+                    background: rgba(59, 130, 246, 0.1);
+                    border: 1px solid #3b82f6;
+                    color: #3b82f6;
+                    padding: 5px 12px;
+                    border-radius: 20px; /* Pill shape */
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    white-space: nowrap;
+                }
+
+                .cw-suggestions button:hover {
+                    background: #3b82f6;
+                    color: #ffffff;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Elements
+            const btn = root.querySelector(".cw-btn");
+            const box = root.querySelector(".cw-box");
+            const messages = root.querySelector(".cw-messages");
+            const input = root.querySelector("input");
+            const sendBtn = root.querySelector(".cw-input button");
+            const suggestions = root.querySelector(".cw-suggestions");
+
+            const SUGGESTIONS = [
+                "Which agents are offline?",
+                "What is the execution Success rate for each agent?",
+                "Show recent alerts",
+                "Show Pending Tasks?"
+            ];
+
+            function escapeHTML(str) {
+                return str.replace(/[&<>"']/g, m => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[m]);
+            }
+
+            function addMessage(text, type) {
+                const div = document.createElement("div");
+                div.className = type === "user" ? "cw-msg-user" : "cw-msg-ai";
+                div.innerHTML = escapeHTML(text);
+                messages.appendChild(div);
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+            function showSuggestions() {
+                suggestions.innerHTML = "";
+                SUGGESTIONS.sort(() => 0.5 - Math.random())
+                    .slice(0, 4)
+                    .forEach(q => {
+                        const b = document.createElement("button");
+                        b.textContent = q;
+                        b.onclick = () => send(q);
+                        suggestions.appendChild(b);
+                    });
+            }
+
+            async function send(msg = null) {
+                const text = msg || input.value;
+                if (!text) return;
+
+                addMessage(text, "user");
+                input.value = "";
+
+                addMessage("Thinking...", "ai");
+
+                try {
+                    const res = await fetch(config.endpoint || "/ai/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: text })
+                    });
+
+                    const data = await res.json();
+
+                    messages.lastChild.remove(); // remove "Thinking..."
+                    addMessage(data.reply || "No response", "ai");
+
+                } catch (e) {
+                    messages.lastChild.remove();
+                    addMessage("Error contacting AI", "ai");
+                }
+            }
+
+            btn.onclick = () => {
+                const visible = box.style.display === "flex";
+                box.style.display = visible ? "none" : "flex";
+                if (!visible) showSuggestions();
+            };
+
+            sendBtn.onclick = () => send();
+            input.addEventListener("keypress", e => {
+                if (e.key === "Enter") send();
+            });
+        }
+    };
+
+    // Auto-init after DOM ready
+    document.addEventListener("DOMContentLoaded", () => {
+        window.ChatWidget.init();
     });
-}
 
-// Send message to backend or FAQ
-async function sendMessage(msg = null) {
-    const input = document.getElementById("user-input");
-    const message = msg || input.value;
-    if(!message) return;
-
-    messagesDiv.innerHTML += `<div style="align-self:flex-end;background:#3b82f6;padding:8px 12px;border-radius:12px;max-width:80%;word-wrap:break-word;color:#fff;">${message}</div>`;
-    input.value = "";
-
-    let reply = FAQ[message];
-    if(!reply) {
-        const response = await fetch("/chat", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({message})
-        });
-        const data = await response.json();
-        reply = data.reply;
-    }
-
-    messagesDiv.innerHTML += `<div style="align-self:flex-start;background:#334155;padding:8px 12px;border-radius:12px;max-width:80%;word-wrap:break-word;">${reply}</div>`;
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    if(msg) suggestionsDiv.innerHTML = "";
-}
-
-// Send message on Enter key
-document.getElementById("user-input").addEventListener("keypress", function(e){
-    if(e.key === "Enter") sendMessage();
-});
+})();
 </script>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Plugins</title>
-
+<link rel="icon" type="image/png" href="/static/images/icon.png">
 <link href="{{ url_for('static', filename='css/dashboard.css') }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/plugins.css') }}" rel="stylesheet">
 
@@ -11,7 +11,7 @@
 </head>
 <body>
 
-<!-- ================= SIDEBAR ================= -->
+<!-- ================= NavBar ================= -->
 <div class="sidebar">
     <h4>TENET</h4>
     <a href="/dashboard">Dashboard</a>
@@ -21,6 +21,7 @@
     <a href="/tasks">Tasks</a>
     <a href="/uploads">Uploaded Files</a>
     <a href="/plugins">Plugins</a>
+    <a href="/chat">AI Assistant</a>
     <a href="{{ url_for('logout') }}">Logout</a>
 </div>
 
