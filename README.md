@@ -179,6 +179,25 @@ Visual insights into system performance.
 
 ---
 
+## 🤖 AI Security Operations Analytics Assistant 
+
+* AI-driven Analytics Assistant designed to act as a virtual SOC analyst. It parses complex database strings into actionable security intelligence.
+
+🧠 Core Capabilities:
+
+* The assistant acts as a Security Operations Analytics Assistant, interfacing directly with the SQLite database to:
+* Identify Anomalies: Detect agents beaconing from unexpected IPs or outside expected intervals.
+* Health Audits: Summarize which agent groups are underperforming or facing high task failure rates.
+* Incident Summarization: Convert raw logs into high-level security briefings.
+* Contextual Queries: Answer natural language questions like "Which agents in the 'test' group are currently online?"
+
+📥 Dual-Interface Access:
+
+* Dedicated Analytics Page (/chat): A full-screen workspace for deep-dive investigations and historical data analysis.
+* Global Security Widget: A persistent, floating interface available on every dashboard page for real-time queries without leaving the current view.
+
+---
+
 ## 🖥️ Dashboard Enhancements (`/dashboard`)
 
 ### ⚡ Task Creation
