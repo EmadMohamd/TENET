@@ -444,7 +444,6 @@ project/
 
 * 🔒 Encrypted communication (Fernet)
 * 🔑 API key protection for sensitive routes
-* ⚠️ Passwords should be **hashed in production**
 * ⚠️ Restrict plugin execution to trusted users
 * ⚠️ Use HTTPS in real deployments
 * ⚠️ Monitor reverse shell usage carefully

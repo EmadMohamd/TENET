@@ -2,6 +2,8 @@ import os
 import json
 import subprocess
 import uuid
+
+import bcrypt
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
@@ -21,6 +23,7 @@ from collections import Counter
 import string
 import difflib
 from google import genai
+from bcrypt import hashpw, gensalt, checkpw
 
 app = Flask(__name__)
 load_dotenv()
@@ -334,9 +337,10 @@ def agent_create():
         return {"error": "Username already exists"}, 400
 
     task_uuid = str(uuid.uuid4())
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
     db.execute(
         "INSERT INTO USERS (username, password, role) VALUES (?, ?, ?)",
-        (username, password, "agent")
+        (username, hashed, "agent")
     )
     db.commit()
     with open("Agent2.py", "r") as f_in, open(f"Agent{id_number}.py", "w") as f_out:
@@ -708,7 +712,7 @@ def login():
         (username,)
     ).fetchone()
 
-    if not row or row["password"] != password:
+    if not row or not bcrypt.checkpw(password.encode("utf-8"), row["password"]):
         update_attempts(db, ip, success=False)
         db.commit()
 
@@ -778,7 +782,7 @@ def login():
         VALUES (?, ?, ?, ?)
     """, (token, agent_id, expiry.isoformat(), username))
 
-    # ✅ success → reset attempts
+    # success → reset attempts
     update_attempts(db, ip, success=True)
 
     db.commit()
@@ -829,33 +833,43 @@ def task_success_rate(agent_id):
     status_counts = dict(Counter(statuses))
     return status_counts
 
+
 def get_online_offline_counts():
     db = get_db()
-    agent_status = {}
-    statuses = {}
-    # Fetch all statuses
-    rows = db.execute("SELECT id ,last_seen FROM agents").fetchall()
-    for row in rows:
-        agent_status[row[0]] = row[1]
+    statuses = []
+    rows = db.execute("SELECT id, last_seen FROM agents").fetchall()
 
-    for agent_id, ts_str in agent_status.items():
-        # Convert string to datetime object (assume UTC)
-        last_activity = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        current_time = datetime.now(timezone.utc)
-        # Check if last activity was within 30 seconds
-        if (current_time - last_activity).total_seconds() <= 30:
-            statuses[agent_id] = "online"
-        else:
-            statuses[agent_id] = "offline"
+    current_time = datetime.now(timezone.utc)
+
+    for row in rows:
+        agent_id, ts_str = row[0], row[1]
+
+        if not ts_str:
+            statuses.append("offline")
+            continue
+
+        try:
+            last_activity = datetime.fromisoformat(ts_str)
+
+            if last_activity.tzinfo is None:
+                last_activity = last_activity.replace(tzinfo=timezone.utc)
+
+            # Check if last activity was within 30 seconds
+            if (current_time - last_activity).total_seconds() <= 30:
+                statuses.append("online")
+            else:
+                statuses.append("offline")
+        except ValueError:
+            # Fallback if the database has an unexpected string format
+            statuses.append("offline")
 
     # Count each status
-    counts = Counter(statuses.values())
-    # Ensure both keys exist
-    counts = {
+    counts = Counter(statuses)
+
+    return {
         "online": counts.get("online", 0),
         "offline": counts.get("offline", 0)
     }
-    return counts
 
 @app.route("/get_piechart_task_success_rate")
 def get_piechart_task_success_rate():
@@ -1021,7 +1035,7 @@ def get_alerts():
 def send_telegram_logs():
     db = get_db()
 
-    # 1. Fetch only logs that haven't been sent yet
+    # 1. Fetch only logs that haven't been sent, yet
     # We use 'sent = 0' to find new entries
     rows = db.execute("SELECT * FROM logs WHERE sent = 0").fetchall()
 
