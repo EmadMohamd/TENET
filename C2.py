@@ -2,7 +2,6 @@ import os
 import json
 import subprocess
 import uuid
-
 import bcrypt
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
@@ -1352,7 +1351,7 @@ def revshell():
     current_time = datetime.now(timezone.utc)
     db = get_db()
     db.execute(
-        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level,task_id) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level,task_id) VALUES (?, ?, ?, ?, ?, ?)",
         (log_uuid, current_time, "administrator", f"Created a new Reverse shell", "Critical",task_uuid))
     db.commit()
 
