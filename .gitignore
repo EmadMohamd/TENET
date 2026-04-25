@@ -17,3 +17,9 @@ venv/
 
 #db
 *.db
+
+#keys
+/keys
+*.crt
+*.key
+*.crl

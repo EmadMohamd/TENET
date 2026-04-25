@@ -314,7 +314,8 @@ document.getElementById("createRevShellForm").addEventListener("submit", async (
     const payload = {
         agent_id: document.getElementById("revAgentId").value.trim(),
         port: document.getElementById("Port").value.trim(),
-
+        host_os: document.getElementById("hostOs").value,
+        guest_os: document.getElementById("guestOs").value
     };
 
     try {

@@ -1,12 +1,16 @@
 import requests
 import subprocess
 import os
-
-SERVER_URL = "http://192.168.1.41:5000"
+from pathlib import Path
+SERVER_URL = "https://localhost"
 UPLOAD_ENDPOINT = "/upload"
 TOOLS_ENDPOINT = "/tools"
 filename = "linpeas_small.sh"
 output = "output.txt"
+BASE_DIR = Path.cwd()
+CLIENT_CRT = BASE_DIR / "keys" / "agent1.crt"
+CLIENT_KEY = BASE_DIR / "keys" / "agent1.key"
+CA_CERT = BASE_DIR / "keys" / "ca.crt"
 
 def run():
     try:
@@ -51,7 +55,7 @@ def run():
             try:
                 with open(f"{output}", "rb") as file:
                     files = {"file": file}
-                    response = requests.post(SERVER_URL + UPLOAD_ENDPOINT, files=files)
+                    response = requests.post(SERVER_URL + UPLOAD_ENDPOINT, files=files,cert=(CLIENT_CRT,CLIENT_KEY), verify=CA_CERT)
                     print(response.status_code, response.text)
 
             except Exception as e:

