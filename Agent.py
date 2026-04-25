@@ -68,11 +68,8 @@ def run_mtls_requests():
             headers=headers
         )
 
-        if response.status_code == 200:
-            print("MTLS")
-
     except requests.exceptions.SSLError as e:
-        print("\nPossible causes:\n1. Server doesn't trust the Client CA\n2. Client cert is expired\n3. Wrong CA file provided in 'verify'")
+        print("SSL Error",{e})
     except requests.exceptions.RequestException as e:
         print(f"Connection Error: {e}")
 
