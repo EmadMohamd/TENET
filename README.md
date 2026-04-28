@@ -609,10 +609,10 @@ TENET/
     ├── ca.key          # CA private key
     ├── server.crt      # Server TLS certificate
     ├── server.key      # Server private key
-    ├── agents/         # Per-agent certificates
-    ├── admins/         # Admin .p12 bundles
-    ├── metadata/       # Certificate metadata (JSON)
-    └── revoked/        # Revoked certificates
+    ├── agent.crt         # Per-agent certificates
+    ├── agent.key         # Admin .p12 bundles
+    ├── admin.key       # Certificate metadata (JSON)
+    └── admin.crt        # Revoked certificates
 ```
 
 ---
