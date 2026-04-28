@@ -65,7 +65,7 @@ Agent                                    Nginx (Server)
   |──── ClientHello ─────────────────────────►|
   |◄─── ServerHello + server.crt ────────────|
   |◄─── CertificateRequest ──────────────────|   ← mTLS step
-  |──── agent-001.crt ───────────────────────►|   ← agent proves identity
+  |──── agent1.crt ───────────────────────►|   ← agent proves identity
   |──── CertificateVerify (signature) ───────►|   ← proves it owns the key
   |                                           |
   |       TLS session established             |
@@ -73,7 +73,7 @@ Agent                                    Nginx (Server)
   |                                           |
   |                               Nginx forwards to Flask
   |                               with headers:
-  |                               X-Client-Cert-CN: agent-001
+  |                               X-Client-Cert-CN: agent1
   |                               X-SSL-Verified: SUCCESS
 ```
 
@@ -86,9 +86,9 @@ Nginx handles all certificate verification. Flask receives only already-verified
 ```
 Root CA  (ca.crt / ca.key)         ← lives on the server only
 ├── server.crt                     ← proves server identity to agents
-├── agent-001.crt                  ← proves agent-001's identity to server
-├── agent-002.crt                  ← each agent gets its own unique cert
-└── admin-alice.crt                ← admin browser certificates (.p12 format)
+├── agent1.crt                  ← proves agent1's identity to server
+├── agent2.crt                  ← each agent gets its own unique cert
+└── admin.crt                ← admin browser certificates (.p12 format)
 ```
 
 * The CA **public** certificate (`ca.crt`) is distributed to agents so they can verify the server's identity during the TLS handshake
@@ -106,9 +106,9 @@ The creation flow:
 1. Admin fills in Agent ID, username, password, and group in the dashboard
 2. Password is immediately hashed with bcrypt — plaintext is never stored
 3. Server generates:
-   * `agent-{id}.key` — RSA 2048-bit private key
-   * `agent-{id}.csr` — Certificate Signing Request (deleted after signing)
-   * `agent-{id}.crt` — Certificate signed by the CA (stored in `./certs/agents/`)
+   * `agent{id}.key` — RSA 2048-bit private key
+   * `agent{id}.csr` — Certificate Signing Request (deleted after signing)
+   * `agent{id}.crt` — Certificate signed by the CA (stored in `./keys/agents/`)
 4. The certificate and key paths are written into the agent file (`Agent{id}.py`)
 5. The agent file, cert, and key are deployed together onto the agent machine
 6. The full mTLS bundle (agent file + cert + key + CA public cert) must be present on the agent machine for it to operate — possession of the agent file alone is not sufficient to connect
@@ -120,22 +120,22 @@ The CN (Common Name) in each agent certificate is set to the Agent ID. Nginx ext
 ### Certificate Storage Layout
 
 ```
-certs/
+keys/
 ├── ca.crt               ← CA public cert  (distributed to agents)
 ├── ca.key               ← CA private key  (server only, never shared)
 ├── ca.srl               ← Serial number tracking
 ├── server.crt           ← Server TLS certificate
 ├── server.key           ← Server private key
-├── agents/
-│   ├── agent-001.crt    ← Per-agent certificates
-│   ├── agent-001.key
-│   ├── agent-002.crt
-│   └── ...
-├── admins/
-│   ├── alice.crt        ← Admin certificates (server-side copy)
-│   ├── alice.key
-│   ├── alice.p12        ← .p12 file imported into admin browser
-│   └── ...
+├
+│── agent1.crt    ← Per-agent certificates
+│── agent1.key
+│── agent2.crt
+│── agent2.key
+├
+│── admin.crt        ← Admin certificates (server-side copy)
+│── admin.key
+│── admin.p12        ← .p12 file imported into admin browser
+
 
 ---
 
@@ -155,7 +155,7 @@ Key Nginx directives:
 
 ```nginx
 # Require client certificates signed by the CA
-ssl_client_certificate /path/to/certs/ca.crt;
+ssl_client_certificate /path/to/keys/ca.crt;
 ssl_verify_client      required;
 
 # Forward verified identity to Flask
@@ -183,8 +183,8 @@ Certificates are valid for 365 days by default. To renew, revoke the old agent a
 
 ```bash
 # Confirm a cert was signed by your CA
-openssl verify -CAfile certs/ca.crt certs/agents/agent-001.crt
-# Output: certs/agents/agent-001.crt: OK
+openssl verify -CAfile keys/ca.crt keys/agents/agent1.crt
+# Output: keys/agents/agent-001.crt: OK
 ```
 
 ---
@@ -604,7 +604,7 @@ TENET/
 ├── tools/               # Helper tools & plugin resources
 ├── templates/          # HTML dashboard
 ├── static/             # CSS / JS assets
-└── certs/
+└── keys/
     ├── ca.crt          # CA public certificate
     ├── ca.key          # CA private key
     ├── server.crt      # Server TLS certificate
