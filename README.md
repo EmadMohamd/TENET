@@ -6,6 +6,12 @@ A **Flask-based command-and-control style server** designed for managing remote 
 
 ---
 
+## ⚙️ Setup Instructions
+
+This project requires additional configuration (database, environment variables, and mTLS setup).
+
+➡️ Please follow the full setup guide in [SETUP.md](./SETUP.md)
+
 # 🚀 Features
 
 ## 🔐 Secure Communication

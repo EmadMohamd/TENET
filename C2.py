@@ -25,6 +25,8 @@ import difflib
 from google import genai
 from pathlib import Path
 from bcrypt import hashpw, gensalt, checkpw
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 load_dotenv()
@@ -73,6 +75,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
 AGENT_ALERT_TIMEOUT = 5
+limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day"])
 SYSTEM_PROMPT = """
 You are a Security Operations Analytics Assistant for a remote agent management system.
 
@@ -129,34 +132,25 @@ CERT_DIR = Path("./keys")
 
 def require_mtls(f):
     """
-    Decorator: require mTLS authentication
-
-    This decorator checks that Nginx has verified the client certificate.
-    Nginx sets X-SSL-Verified and X-Client-Cert-CN headers after successful
+    Decorator: require mTLS authentication.
+    Nginx sets X-SSL-Verified and X-Client-Cert-CN after a successful
     TLS handshake.
     """
-
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        # Check if Nginx verified the certificate
-        verified = request.headers.get("X-SSL-Verified")
-        agent_cert = request.headers.get("X-Client-Cert-CN")
+        verified = request.headers.get("X-Client-Verify")
+        dn       = request.headers.get("X-Client-DN")
 
-        # Log the request
-
-
-        # Reject if not verified
+        # Check TLS client verification
         if verified != "SUCCESS":
-            abort(403, "Client certificate verification failed")
+            abort(403, description="Client certificate verification failed")
 
-        # Reject if no identity
-        if not agent_cert:
-            abort(403, "No client certificate identity")
+        # Ensure we have identity
+        if not dn:
+            abort(403, description="Missing client certificate DN")
 
-        # Attach to request context for use in route handlers
-        request.agent_cert = agent_cert
-        request.agent_dn = request.headers.get("X-Client-Cert-DN")
-        request.agent_fingerprint = request.headers.get("X-Client-Fingerprint")
+        # Attach useful info to request context
+        request.agent_dn = dn
 
         return f(*args, **kwargs)
 
@@ -232,6 +226,7 @@ def require_token(role=None):  #  accepts role
 # --- Agent beacon endpoint ---
 @require_mtls
 @app.route('/beacon', methods=['POST'])
+@limiter.limit("60 per minute")
 def beacon():
     encrypted = request.json.get('data')
     decrypted_json = decrypt_data(encrypted)
@@ -440,6 +435,7 @@ def agent_create():
 
 # --- Agent result endpoint ---
 @app.route('/result', methods=['POST'])
+@limiter.limit("60 per minute")
 def result():
     encrypted = request.json.get('data')
     decrypted_json = decrypt_data(encrypted)
@@ -596,6 +592,7 @@ def restart_recurring_tasks(app):
 
 # --- File upload ---
 @app.route('/upload', methods=['POST'])
+@limiter.limit("60 per minute")
 def upload():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -723,6 +720,7 @@ def update_attempts(db, ip, success):
 MAX_ATTEMPTS = 3
 # --- Login / Logout ---
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("60 per minute")
 def login():
     db = get_db()
     ip = get_client_ip()

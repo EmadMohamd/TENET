@@ -1,0 +1,10 @@
+Flask
+bcrypt
+cryptography
+python-dotenv
+requests
+folium
+Pillow
+pynput
+google-genai
+flask-limiter
