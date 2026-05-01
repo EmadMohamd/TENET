@@ -12,6 +12,8 @@ This project requires additional configuration (database, environment variables,
 
 ➡️ Please follow the full setup guide in [SETUP.md](./SETUP.md)
 
+---
+
 # 🚀 Features
 
 ## 🔐 Secure Communication
@@ -512,7 +514,7 @@ Server:
 
   * Pending tasks
   * Scheduled tasks
-  * ✅ Group-based tasks *(NEW)*
+  * ✅ Group-based tasks
 
 ---
 
@@ -649,8 +651,6 @@ TENET/
 ## 💡 Future Improvements
 
 * Role-Based Access Control (RBAC)
-* Advanced agent grouping (multi-group tagging)
-* WebSocket real-time updates
 * Retry/failure handling
 * Docker deployment
 * Automatic certificate renewal before expiry
