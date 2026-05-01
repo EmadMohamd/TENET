@@ -52,11 +52,8 @@ session.cert = (
     BASE_DIR / "keys" / f"agent{AGENT_ID}.key",
 )
 
-
-'''
-    check if mTLS works!
-    
-    def run_mtls_requests():
+''' check if mTLS works
+def run_mtls_requests():
     headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     payload = get_system_info()
@@ -71,11 +68,14 @@ session.cert = (
             headers=headers
         )
 
+        if response.status_code == 200:
+            print("MTLS")
+
     except requests.exceptions.SSLError as e:
-        print("SSL Error",{e})
+        print("\nPossible causes:\n1. Server doesn't trust the Client CA\n2. Client cert is expired\n3. Wrong CA file provided in 'verify'")
     except requests.exceptions.RequestException as e:
-        print(f"Connection Error: {e}")
-'''
+        print(f"Connection Error: {e}")'''
+
 
 def encrypt_data(data):
     return cipher.encrypt(data.encode()).decode()

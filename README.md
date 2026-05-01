@@ -67,7 +67,7 @@ Agent                                    Nginx (Server)
   |──── ClientHello ─────────────────────────►|
   |◄─── ServerHello + server.crt ────────────|
   |◄─── CertificateRequest ──────────────────|   ← mTLS step
-  |──── agent1.crt ───────────────────────►|   ← agent proves identity
+  |──── agent-001.crt ───────────────────────►|   ← agent proves identity
   |──── CertificateVerify (signature) ───────►|   ← proves it owns the key
   |                                           |
   |       TLS session established             |
@@ -75,7 +75,7 @@ Agent                                    Nginx (Server)
   |                                           |
   |                               Nginx forwards to Flask
   |                               with headers:
-  |                               X-Client-Cert-CN: agent1
+  |                               X-Client-Cert-CN: agent-001
   |                               X-SSL-Verified: SUCCESS
 ```
 
@@ -88,9 +88,8 @@ Nginx handles all certificate verification. Flask receives only already-verified
 ```
 Root CA  (ca.crt / ca.key)         ← lives on the server only
 ├── server.crt                     ← proves server identity to agents
-├── agent1.crt                  ← proves agent1's identity to server
-├── agent2.crt                  ← each agent gets its own unique cert
-└── admin.crt                ← admin browser certificates (.p12 format)
+├── agent-001.crt                  ← proves agent-001's identity to server
+└── agent-002.crt                  ← each agent gets its own unique cert
 ```
 
 * The CA **public** certificate (`ca.crt`) is distributed to agents so they can verify the server's identity during the TLS handshake
@@ -110,7 +109,7 @@ The creation flow:
 3. Server generates:
    * `agent{id}.key` — RSA 2048-bit private key
    * `agent{id}.csr` — Certificate Signing Request (deleted after signing)
-   * `agent{id}.crt` — Certificate signed by the CA (stored in `./keys/agents/`)
+   * `agent{id}.crt` — Certificate signed by the CA (stored in `./keys/`)
 4. The certificate and key paths are written into the agent file (`Agent{id}.py`)
 5. The agent file, cert, and key are deployed together onto the agent machine
 6. The full mTLS bundle (agent file + cert + key + CA public cert) must be present on the agent machine for it to operate — possession of the agent file alone is not sufficient to connect
@@ -123,21 +122,17 @@ The CN (Common Name) in each agent certificate is set to the Agent ID. Nginx ext
 
 ```
 keys/
-├── ca.crt               ← CA public cert  (distributed to agents)
-├── ca.key               ← CA private key  (server only, never shared)
-├── ca.srl               ← Serial number tracking
-├── server.crt           ← Server TLS certificate
-├── server.key           ← Server private key
-├
-│── agent1.crt    ← Per-agent certificates
-│── agent1.key
-│── agent2.crt
-│── agent2.key
-├
-│── admin.crt        ← Admin certificates (server-side copy)
-│── admin.key
-│── admin.p12        ← .p12 file imported into admin browser
-
+├── ca.crt              ← CA public cert  (distributed to agents)
+├── ca.key              ← CA private key  (server only, never shared)
+├── ca.srl              ← Serial number tracking
+├── server.crt          ← Server TLS certificate
+├── server.key          ← Server private key
+├── agent001.crt        ← Per-agent certificate (auto-generated at creation)
+├── agent001.key        ← Per-agent private key
+├── agent002.crt
+├── agent002.key
+└── ...
+```
 
 ---
 
@@ -171,22 +166,25 @@ server {
     return 301 https://$host$request_uri;
 }
 ```
+
+---
+
 ### Certificate Management
 
 #### Revoking an Agent
 
-When an agent is decommissioned or compromised, its certificate is revoked:
+When an agent is decommissioned or compromised, delete its certificate files from `keys/` and remove the agent record from the database. The agent can no longer connect as its certificate will no longer be present.
 
 #### Renewing a Certificate
 
-Certificates are valid for 365 days by default. To renew, revoke the old agent and recreate it via the dashboard — a new certificate is generated automatically.
+Certificates are valid for 365 days by default. To renew, delete the old agent and recreate it via the dashboard — a new certificate is generated automatically.
 
 #### Verifying the Certificate Chain
 
 ```bash
 # Confirm a cert was signed by your CA
-openssl verify -CAfile keys/ca.crt keys/agents/agent1.crt
-# Output: keys/agents/agent-001.crt: OK
+openssl verify -CAfile keys/ca.crt keys/agent001.crt
+# Output: keys/agent001.crt: OK
 ```
 
 ---
@@ -197,7 +195,6 @@ openssl verify -CAfile keys/ca.crt keys/agents/agent1.crt
 * **Each agent has a unique key pair** — revoking one agent does not affect others.
 * **The full mTLS bundle must be present on the agent machine** — the agent file alone is not sufficient; the cert and key must accompany it for any connection to succeed.
 * **Flask binds to loopback only** (`127.0.0.1:5000`) — direct access bypasses Nginx and mTLS entirely. Never bind Flask to `0.0.0.0`.
-* **Admin certs use `O=Admin`** in the DN — Flask checks this field to prevent agents from accessing admin-only routes even if they hold a valid cert.
 
 ---
 
@@ -211,7 +208,7 @@ openssl verify -CAfile keys/ca.crt keys/agents/agent1.crt
   * Users
   * Scheduled & recurring task metadata
 
-### 🆕 Agents Table Update
+### Agents Table
 
 The `agents` table includes:
 
@@ -221,7 +218,7 @@ The `agents` table includes:
 * `os`
 * `ip`
 * `last_seen`
-* `agent_group` ✅ *(NEW)*
+* `agent_group`
 
 This enables tasking and filtering based on logical groupings.
 
@@ -320,7 +317,6 @@ Visual insights into system performance.
 * The certificate is imported once into the browser and presented automatically on every subsequent visit
 * Provides an additional layer of identity verification at the TLS layer — the session cannot be established without a valid admin certificate signed by the server's CA
 
-
 ### 🤖 Agent Authentication
 
 * mTLS certificate issued at agent creation — must be present on the agent machine alongside the agent file
@@ -350,20 +346,19 @@ Visual insights into system performance.
 
 🧠 Core Capabilities:
 
-* The assistant acts as a Security Operations Analytics Assistant, interfacing directly with the SQLite database to:
-* Identify Anomalies: Detect agents beaconing from unexpected IPs or outside expected intervals.
-* Health Audits: Summarize which agent groups are underperforming or facing high task failure rates.
-* Incident Summarization: Convert raw logs into high-level security briefings.
+* Identify Anomalies: Detect agents beaconing from unexpected IPs or outside expected intervals
+* Health Audits: Summarize which agent groups are underperforming or facing high task failure rates
+* Incident Summarization: Convert raw logs into high-level security briefings
 * Contextual Queries: Answer natural language questions like "Which agents in the 'test' group are currently online?"
 
 📥 Dual-Interface Access:
 
-* Dedicated Analytics Page (/chat): A full-screen workspace for deep-dive investigations and historical data analysis.
-* Global Security Widget: A persistent, floating interface available on every dashboard page for real-time queries without leaving the current view.
+* Dedicated Analytics Page (`/chat`): A full-screen workspace for deep-dive investigations and historical data analysis
+* Global Security Widget: A persistent, floating interface available on every dashboard page for real-time queries without leaving the current view
 
 ---
 
-## 🖥️ Dashboard Enhancements (`/dashboard`)
+## 🖥️ Dashboard (`/dashboard`)
 
 ### ⚡ Task Creation
 
@@ -371,21 +366,16 @@ Visual insights into system performance.
 
 ### 🎯 Targeting Modes
 
-Tasks can now be dispatched using **one of two targeting methods**:
+Tasks can be dispatched using **one of two targeting methods**:
 
 * **By Agent ID**
 * **By Agent Group**
 
 ⚠️ **Mutual Exclusivity Rule**
 
-* You must provide **either**:
-
-  * `agent_id`
-  * **OR** `agent_group`
+* You must provide **either** `agent_id` **OR** `agent_group`
 * Providing both is **not allowed**
 * Providing neither is **not allowed**
-
-This ensures clear and predictable task routing.
 
 ---
 
@@ -403,13 +393,7 @@ This ensures clear and predictable task routing.
 ### 👥 Group-Based Tasking
 
 * Tasks can be assigned to all agents within a specific `agent_group`
-* Enables:
-
-  * Bulk operations
-  * Segmented tasking
-  * Role-based execution patterns
-
-#### Example
+* Enables bulk operations, segmented tasking, and role-based execution patterns
 
 ```json
 {
@@ -419,50 +403,32 @@ This ensures clear and predictable task routing.
 }
 ```
 
-✔️ Automatically dispatched to **all agents** in that group upon beacon
-
 ---
 
 ### 🔌 Reverse Shell Support
 
 * Launch reverse shell tasks directly from dashboard
-* Specify:
-
-  * Target agent ID
-  * Listening port
+* Specify target agent ID and listening port
 
 ---
 
 ### ⏱️ Task Scheduling
 
-* Schedule tasks for future execution
-* Define exact execution time
-
-Works with:
-
-* Agent ID targeting
-* ✅ Agent Group targeting *(NEW)*
+* Schedule tasks for future execution with an exact execution time
+* Compatible with both Agent ID and Agent Group targeting
 
 ---
 
 ### 🔁 Recurring Tasks
 
-* Automate repeated execution
-* Supported intervals:
-
-  * Minutes
-  * Hourly
-  * Daily
-  * Custom intervals
-
-✔️ Fully compatible with **group-based targeting**
+* Automate repeated execution at defined intervals (minutes, hourly, daily, custom)
+* Fully compatible with group-based targeting
 
 ---
 
 ### ⚙️ Scheduling Behavior
 
-* Tasks stored in database
-* Executed when agents beacon after scheduled time
+* Tasks stored in database and executed when agents beacon after scheduled time
 * Recurring tasks automatically re-queued
 * Fully integrated with task dispatch system
 
@@ -478,18 +444,11 @@ Works with:
 * Agent file (`Agent{id}.py`) written with cert paths embedded
 * Agent optionally assigned an `agent_group`
 
----
-
 ### 2️⃣ Agent Login
 
 * Agent presents mTLS certificate during TLS handshake (verified by Nginx)
 * Agent sends credentials — server validates against bcrypt hash in DB
-* Server:
-
-  * Registers/updates agent record
-  * Returns auth token for the session
-
----
+* Server registers/updates agent record and returns auth token for the session
 
 ### 3️⃣ Beaconing (`/beacon`)
 
@@ -504,93 +463,34 @@ Agents periodically send encrypted data:
 }
 ```
 
-Server:
-
-* Verifies mTLS certificate (Nginx layer)
-* Decrypts Fernet payload
-* Updates last seen
-* Marks agent online
-* Dispatches:
-
-  * Pending tasks
-  * Scheduled tasks
-  * ✅ Group-based tasks
-
----
+Server verifies mTLS certificate (Nginx layer), decrypts Fernet payload, updates last seen, marks agent online, and dispatches pending tasks.
 
 ### 4️⃣ Task Dispatching
-
-Tasks are:
-
-* Stored in database
-* Delivered on beacon
-
-### 🎯 Targeting Logic (UPDATED)
 
 * If `agent_id` is set → task sent to single agent
 * If `agent_group` is set → task sent to all matching agents
 
----
-
-#### Example (Single Agent)
-
 ```json
-{
-  "type": "shell",
-  "command": "whoami",
-  "agent_id": "agent1"
-}
+{ "type": "shell", "command": "whoami", "agent_id": "agent1" }
 ```
 
----
-
-#### Example (Group Task)
-
 ```json
-{
-  "type": "shell",
-  "command": "hostname",
-  "agent_group": "blue_team"
-}
+{ "type": "shell", "command": "hostname", "agent_group": "blue_team" }
 ```
 
----
-
-#### Scheduled Task
-
 ```json
-{
-  "type": "shell",
-  "command": "whoami",
-  "execute_at": "2026-04-15T10:00:00",
-  "agent_group": "ops"
-}
+{ "type": "shell", "command": "whoami", "execute_at": "2026-04-15T10:00:00", "agent_group": "ops" }
 ```
 
----
-
-#### Recurring Task
-
 ```json
-{
-  "type": "shell",
-  "command": "whoami",
-  "recurring_at": "60min",
-  "agent_group": "monitoring"
-}
+{ "type": "shell", "command": "whoami", "recurring_at": "60min", "agent_group": "monitoring" }
 ```
-
----
 
 ### 5️⃣ Result Submission (`/result`)
 
 * Agent presents mTLS certificate (Nginx verifies)
 * Agent sends Fernet-encrypted results
-* Server:
-
-  * Decrypts data
-  * Stores output
-  * Marks task completed
+* Server decrypts, stores output, and marks task completed
 
 ---
 
@@ -599,22 +499,50 @@ Tasks are:
 ```
 TENET/
 │
-├── app.py              # Main Flask server
-├── database.db         # SQLite database
-├── upload/             # Uploaded files
-├── plugins/            # Server-side plugins
-├── tools/               # Helper tools & plugin resources
-├── templates/          # HTML dashboard
-├── static/             # CSS / JS assets
-└── keys/
-    ├── ca.crt          # CA public certificate
-    ├── ca.key          # CA private key
-    ├── server.crt      # Server TLS certificate
-    ├── server.key      # Server private key
-    ├── agent.crt         # Per-agent certificates
-    ├── agent.key         # Admin .p12 bundles
-    ├── admin.key       # Certificate metadata (JSON)
-    └── admin.crt        # Revoked certificates
+├── app.py                  # Entry point — creates app, registers blueprints
+├── config.py               # All constants and environment variables
+├── database.py             # DB connection management (get_db, close_db)
+│
+├── middleware/
+│   ├── __init__.py
+│   └── auth.py             # require_token, require_mtls decorators
+│
+├── routes/
+│   ├── __init__.py
+│   ├── auth.py             # /login, /logout
+│   ├── agents.py           # /agents/, /agents/<id>, /agents-data, /agent-create
+│   ├── beacon.py           # /beacon, /result
+│   ├── tasks.py            # /task, /tasks/, /tasks-data, /tasks/<uuid>
+│   ├── files.py            # /upload, /uploads/, /uploads/<filename>, /files-data
+│   ├── plugins.py          # /plugins/, /plugins/<filename>, /plugins/run
+│   ├── dashboard.py        # /dashboard, /info, /alerts, /get_alerts, chart endpoints
+│   ├── ai.py               # /chat (FAQ), /ai/chat (Gemini), /chat page
+│   └── revshell.py         # /revshell, /tools/<filename>
+│
+├── services/
+│   ├── __init__.py
+│   ├── crypto.py           # encrypt_data, decrypt_data (Fernet helpers)
+│   ├── scheduler.py        # recurring_scheduler, restart_recurring_tasks
+│   ├── telegram.py         # send_telegram_logs
+│   ├── geo.py              # get_location, get_online_offline_counts
+│   ├── charts.py           # tasks_execution_timestamps, task_success_rate
+│   ├── alerts.py           # gen_alerts
+│   └── ai.py               # ask_ai, build_context
+│
+├── keys/
+│   ├── ca.crt              # CA public certificate
+│   ├── ca.key              # CA private key ⚠️ never share
+│   ├── server.crt          # Server TLS certificate
+│   ├── server.key          # Server private key
+│   ├── agent1.crt        # Per-agent certificates (auto-generated at creation)
+│   ├── agent1.key
+│   └── ...
+│
+├── upload/                 # Uploaded files
+├── plugins/                # Server-side plugins
+├── tools/                  # Helper tools (Netcat, etc.)
+├── templates/              # HTML templates
+└── static/                 # CSS / JS assets
 ```
 
 ---
@@ -623,10 +551,10 @@ TENET/
 
 * 🔒 Encrypted communication (Fernet) — obfuscates payload on top of TLS as an additional layer
 * 🔑 API key protection for sensitive routes
-* 🔒 mTLS enforced on all agent and admin routes via Nginx
+* 🔒 mTLS enforced on all agent routes via Nginx
 * 🔒 HTTP automatically redirected to HTTPS
 * 🔒 All passwords (operators and agents) hashed with bcrypt — never stored in plaintext
-* 🔒 Each agent holds a unique certificate — revocation is per-agent and does not affect others
+* 🔒 Each agent holds a unique certificate — revoking one does not affect others
 * 🔒 Admin dashboard requires both login credentials and a browser-imported certificate
 * 🔒 CA public cert distributed to agents for server verification; CA private key stays server-side only
 * ⚠️ Flask must bind to `127.0.0.1` only — never `0.0.0.0`
@@ -651,8 +579,8 @@ TENET/
 ## 💡 Future Improvements
 
 * Role-Based Access Control (RBAC)
+* Advanced agent grouping (multi-group tagging)
+* WebSocket real-time updates
 * Retry/failure handling
 * Docker deployment
 * Automatic certificate renewal before expiry
-* OCSP/CRL-based real-time certificate revocation
-* HSM integration for CA key storage
