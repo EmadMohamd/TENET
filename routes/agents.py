@@ -4,11 +4,12 @@ import bcrypt
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for
+from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for, send_file
 
 from config import CERT_DIR, AGENT_ONLINE_TIMEOUT, API_KEY
 from database import get_db
 from middleware.auth import require_token
+from services.crypto import decrypt_data
 
 agents_bp = Blueprint("agents", __name__)
 
@@ -156,3 +157,33 @@ def agent_create():
     db.commit()
 
     return {"status": "created"}, 200
+
+@agents_bp.route("/agent-update", methods=["POST"])
+@require_token(role="admin")
+def agent_update():
+    agent_version = request.json.get("version")
+    id_number = request.json.get("id")
+    print("agent_version",agent_version)
+    agent_version_updated = "1.0.1"
+    if agent_version == agent_version_updated:
+        return "No Available Update", 400
+    db = get_db()
+    agent_group_sql = db.execute("SELECT agent_group FROM agents WHERE ID = ?", (id_number,)).fetchone()
+    agent_group = agent_group_sql[0] if agent_group_sql else None
+
+    username_sql = db.execute("SELECT username FROM users WHERE ID = ?", (id_number,)).fetchone()
+    username = username_sql[0] if username_sql else None
+
+    password_sql = db.execute("SELECT password FROM users WHERE ID = ?", (id_number,)).fetchone()
+    password = password_sql[0] if password_sql else None
+
+    with open("Agent.py", "r") as f_in, open(f"Agent{id_number}.py", "w") as f_out:
+        lines     = f_in.readlines()
+        lines[24] = f'username = "{username}"\n'
+        lines[25] = f'password = "{password}"\n'
+        lines[30] = f'AGENT_ID = "{id_number}"\n'
+        lines[31] = f'AGENT_GROUP = "{agent_group}"\n'
+        lines[26] = f'#modified\n'
+        f_out.writelines(lines)
+    agent_file = f"Agent{id_number}.py"
+    return send_file(agent_file, as_attachment=True) ,200

@@ -5,8 +5,8 @@ from datetime import datetime, timezone, timedelta
 from flask import (Blueprint, request, jsonify, render_template,
                    session, redirect, url_for)
 
-from Grad2.database import get_db
-from Grad2.config import MAX_ATTEMPTS
+from database import get_db
+from config import MAX_ATTEMPTS
 
 auth_bp = Blueprint("auth", __name__)
 
