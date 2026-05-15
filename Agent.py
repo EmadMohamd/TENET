@@ -45,7 +45,6 @@ session = requests.Session()
 os.makedirs("./keys", exist_ok=True)
 BASE_DIR = Path(__file__).resolve().parent
 CA_CERT = BASE_DIR / "keys" / "ca.crt"
-# The 'cert' tuple contains the (client_cert, client_key)
 session.verify = str(CA_CERT)
 session.cert = (
     BASE_DIR / "keys" / f"agent{AGENT_ID}.crt",
@@ -217,31 +216,34 @@ def execute_task(task, task_uuid):
 
 
 def agent_update_periodic(seconds=60):
+    '''
+    Not used yet, needs updating and restructure
+    '''
     def agent_update():
-        AGENT_FILE = os.path.abspath(__file__)
-        UPDATE_URL = SERVER_URL + "/agent_update"
-        AGENT_VERSION = "1.0.2"
+        agent_file = os.path.abspath(__file__)
+        update_url = SERVER_URL + "/agent_update"
+        agent_version = "1.0.2"
 
         try:
             print("Checking for update...")
 
             headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
-            payload = {"version": AGENT_VERSION, "id": AGENT_ID}
+            payload = {"version": agent_version, "id": AGENT_ID}
             encrypted_payload = encrypt_data(json.dumps(payload))
 
-            response = session.post(UPDATE_URL, headers=headers, json=payload)
+            response = session.post(update_url, headers=headers, json=payload)
             response.raise_for_status()
 
             if response.status_code == 400:
                 print("No update available.")
             else:
-                tmp_file = AGENT_FILE + ".tmp"
+                tmp_file = agent_file + ".tmp"
                 with open(tmp_file, "wb") as f:
                     f.write(response.content)
 
-                backup_file = AGENT_FILE + ".bak"
-                shutil.move(AGENT_FILE, backup_file)
-                shutil.move(tmp_file, AGENT_FILE)
+                backup_file = agent_file + ".bak"
+                shutil.move(agent_file, backup_file)
+                shutil.move(tmp_file, agent_file)
 
                 print("Update applied! Restarting...")
                 os.execv(sys.executable, [sys.executable] + sys.argv)

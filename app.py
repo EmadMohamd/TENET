@@ -2,7 +2,7 @@ import logging
 import sys
 import os
 
-from flask import Flask ,request, redirect
+from flask import Flask ,request, redirect, session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -63,26 +63,40 @@ def create_app() -> Flask:
     database.init_app(app)
 
     @app.before_request
-    def check_admin_exists():
+    def check_access():
         db = get_db()
 
         # Always allow static files
         if request.endpoint == "static":
             return
 
-        # Check if an admin exists
+        # Public endpoints
+        allowed_endpoints = [
+            "auth.login",
+            "auth.logout",
+            "register.admin_register",
+            "static"
+        ]
+
+        # Check if admin exists
         admin_exists = db.execute(
             "SELECT 1 FROM users WHERE role = 'admin' LIMIT 1"
         ).fetchone()
 
-        # No admin → only allow /admin_register
-        if not admin_exists and request.path != "/admin_register":
-            return redirect("/admin_register")
+        # No admin exists → force admin registration
+        if not admin_exists:
+            if request.endpoint != "register.admin_register":
+                return redirect("/admin_register")
+            return
 
-        # Optional: if admin exists, prevent accessing /admin_register
-        if admin_exists and request.path == "/admin_register":
+        # Prevent accessing admin_register after setup
+        if admin_exists and request.endpoint == "register.admin_register":
             return redirect("/login")
 
+        # Require login
+        if request.endpoint not in allowed_endpoints:
+            if "username" not in session:
+                return redirect("/login")
 
     # Rate limiter (applied per-route via @limiter.limit)
     limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day"])

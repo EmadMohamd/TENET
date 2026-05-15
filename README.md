@@ -303,6 +303,18 @@ Visual insights into system performance.
 
 ## 🔑 Authentication System
 
+### 👨‍💼 First-Time Admin Initialization
+
+When the server is started for the very first time, it supports a secure bootstrap process to create the initial administrator account.
+
+⚙️ Initialization Behavior
+* If the users table contains no existing accounts:
+* The application enables a one-time admin registration
+* The first user created is automatically assigned the admin role
+* Once an admin account exists:
+* Open registration is disabled permanently
+* Additional users must be created through the dashboard by an admin
+
 ### 🧑‍💻 Operator Dashboard Login
 
 * Operators access the dashboard via a **username and password login page**

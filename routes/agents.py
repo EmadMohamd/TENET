@@ -158,13 +158,13 @@ def agent_create():
 
     return {"status": "created"}, 200
 
-@agents_bp.route("/agent-update", methods=["POST"])
+@agents_bp.route("/agent_update", methods=["POST"])
 @require_token(role="admin")
 def agent_update():
     agent_version = request.json.get("version")
     id_number = request.json.get("id")
     print("agent_version",agent_version)
-    agent_version_updated = "1.0.1"
+    agent_version_updated = "1.0.2"
     if agent_version == agent_version_updated:
         return "No Available Update", 400
     db = get_db()
