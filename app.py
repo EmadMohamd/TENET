@@ -94,12 +94,17 @@ def create_app() -> Flask:
             return redirect("/login")
 
         # Require login
+        if request.is_json:
+            return
+
+        # Require web session login
         if request.endpoint not in allowed_endpoints:
             if "username" not in session:
                 return redirect("/login")
 
+
     # Rate limiter (applied per-route via @limiter.limit)
-    limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day"])
+    limiter = Limiter(get_remote_address, app=app, default_limits=["20000 per day"])
 
     # Blueprints
     app.register_blueprint(auth_bp)
