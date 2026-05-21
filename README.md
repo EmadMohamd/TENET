@@ -33,6 +33,56 @@ This project requires additional configuration (database, environment variables,
 
 ---
 
+## 🆙 Agent Updates
+
+Agents can be updated automatically with periodic checks for new versions.
+
+### How It Works
+
+* Agents periodically check the `/api/agent_update` endpoint for available updates
+* Update checks happen on a **configurable interval** (default: 2 hours)
+* Server compares agent's current version against the available version
+* If an update is available, agent downloads, verifies hash, and restarts with new version
+* Server-side outages don't crash agents — they continue operating and retry later
+
+### Update Flow
+
+```
+Agent (v1.0.0)                    Server
+    │                                │
+    ├─ POST /api/agent_update ─────>│
+    │  (version: 1.0.0)             │
+    │                               │
+    │<─ {update: false} ────────────┤  (no update available)
+    │                               │
+    │ [continue beaconing]           │
+    │                               │
+    │ [2 hours later]                │
+    │                               │
+    ├─ POST /api/agent_update ─────>│
+    │  (version: 1.0.0)             │
+    │                               │
+    │<─ {update: true,             ──┤  (update available!)
+    │    download_url: "...",        │
+    │    sha256: "abc123..."}        │
+    │                               │
+    ├─ GET /api/agent_update/agent.py─>│
+    │                               │
+    │<───── [binary file] ──────────┤
+    │                               │
+    ├─ Verify hash ✓                │
+    │ Launch updater                │
+    │ Restart with v1.0.1           │
+```
+
+### Update Security
+
+* **Hash Verification** — SHA256 hash verified on client side before installation
+* **Token Authentication** — Update endpoints require valid API token
+* **Graceful Degradation** — Server outages don't crash agents; they continue operating
+* **Automatic Retry** — Failed updates are retried on the next scheduled check interval
+
+
 ## 👤 Agent Management
 
 * Create and manage agents directly from the dashboard
@@ -41,6 +91,7 @@ This project requires additional configuration (database, environment variables,
   * Agent ID
   * Username
   * Password
+  * AGENT_VERSION (current version of the agent)
 * Optional:
 
   * **Agent Group**
@@ -54,6 +105,17 @@ This project requires additional configuration (database, environment variables,
 * Enables structured and controlled onboarding
 
 ---
+
+## 📄 Agent Configuration File
+
+When an agent is created via the dashboard, the server automatically generates a configuration file containing the agent's credentials and group assignment.
+
+### Config File Format
+
+**Filename:** `Agent{agent_id}.conf`
+
+**Example:** `Agent1.conf`
+
 
 ## 🔒 Mutual TLS (mTLS)
 
@@ -104,15 +166,15 @@ When an agent is created via the dashboard, the server **automatically generates
 
 The creation flow:
 
-1. Admin fills in Agent ID, username, password, and group in the dashboard
+1. Admin fills in Agent ID, username, password, agent version, and group in the dashboard
 2. Password is immediately hashed with bcrypt — plaintext is never stored
 3. Server generates:
    * `agent{id}.key` — RSA 2048-bit private key
    * `agent{id}.csr` — Certificate Signing Request (deleted after signing)
    * `agent{id}.crt` — Certificate signed by the CA (stored in `./keys/`)
-4. The certificate and key paths are written into the agent file (`Agent{id}.py`)
-5. The agent file, cert, and key are deployed together onto the agent machine
-6. The full mTLS bundle (agent file + cert + key + CA public cert) must be present on the agent machine for it to operate — possession of the agent file alone is not sufficient to connect
+4. Config file `Agent{id}.conf` is created with all credentials
+6. The agent file, config file, cert, and key are deployed together onto the agent machine
+7. The full mTLS bundle (agent file + config file + cert + key + CA public cert) must be present on the agent machine for it to operate — possession of the agent file alone is not sufficient to connect
 
 The CN (Common Name) in each agent certificate is set to the Agent ID. Nginx extracts this and forwards it to Flask as `X-Client-Cert-CN`, which is how the server identifies which agent is communicating.
 
@@ -127,10 +189,10 @@ keys/
 ├── ca.srl              ← Serial number tracking
 ├── server.crt          ← Server TLS certificate
 ├── server.key          ← Server private key
-├── agent001.crt        ← Per-agent certificate (auto-generated at creation)
-├── agent001.key        ← Per-agent private key
-├── agent002.crt
-├── agent002.key
+├── agent1.crt        ← Per-agent certificate (auto-generated at creation)
+├── agent1.key        ← Per-agent private key
+├── agent2.crt
+├── agent2.key
 └── ...
 ```
 
@@ -171,29 +233,14 @@ server {
 
 ### Certificate Management
 
-#### Revoking an Agent
 
-When an agent is decommissioned or compromised, delete its certificate files from `keys/` and remove the agent record from the database. The agent can no longer connect as its certificate will no longer be present.
-
-#### Renewing a Certificate
-
-Certificates are valid for 365 days by default. To renew, delete the old agent and recreate it via the dashboard — a new certificate is generated automatically.
-
-#### Verifying the Certificate Chain
-
-```bash
-# Confirm a cert was signed by your CA
-openssl verify -CAfile keys/ca.crt keys/agent001.crt
-# Output: keys/agent001.crt: OK
-```
-
----
 
 ### Security Notes for mTLS
 
 * **`ca.key` is the most critical secret** — it never leaves the server and agents have no need for it. Only the CA public cert (`ca.crt`) is distributed to agents for server verification.
 * **Each agent has a unique key pair** — revoking one agent does not affect others.
-* **The full mTLS bundle must be present on the agent machine** — the agent file alone is not sufficient; the cert and key must accompany it for any connection to succeed.
+* **The full mTLS bundle must be present on the agent machine** — the agent file, config file, cert, and key must accompany each other for any connection to succeed.
+* **Config files contain sensitive paths** — protect with `chmod 600` and restrict distribution to intended machines
 * **Flask binds to loopback only** (`127.0.0.1:5000`) — direct access bypasses Nginx and mTLS entirely. Never bind Flask to `0.0.0.0`.
 
 ---
@@ -220,7 +267,7 @@ The `agents` table includes:
 * `last_seen`
 * `agent_group`
 
-This enables tasking and filtering based on logical groupings.
+This enables tasking and filtering based on logical groupings, as well as automatic update distribution.
 
 ---
 
@@ -331,8 +378,8 @@ When the server is started for the very first time, it supports a secure bootstr
 
 ### 🤖 Agent Authentication
 
-* mTLS certificate issued at agent creation — must be present on the agent machine alongside the agent file
-* Credentials (username and password) hashed with bcrypt before storage — never stored in plaintext
+* mTLS certificate issued at agent creation — must be present on the agent machine alongside the agent file and config file
+* Credentials (username and password) stored as bcrypt hash in both database and config file — never stored in plaintext
 * Token-based session returned after successful credential validation
 * Token used for all subsequent API calls within the session
 
@@ -450,19 +497,29 @@ Tasks can be dispatched using **one of two targeting methods**:
 
 ### 1️⃣ Agent Creation
 
-* Admin creates agent via dashboard
+* Admin creates agent via dashboard with:
+  * Agent ID
+  * Username
+  * Password
+  * AGENT_VERSION
+  * Optional: Agent Group
 * Password hashed with bcrypt before storage — plaintext never persisted
-* Server automatically generates mTLS certificate for the agent
-* Agent file (`Agent{id}.py`) written with cert paths embedded
+* Server automatically generates:
+  * mTLS certificate for the agent
+  * Configuration file (`Agent{id}.conf`) containing credentials, version, and group
+* Agent file (`Agent{id}.py`) written with cert and config paths embedded
 * Agent optionally assigned an `agent_group`
 
-### 2️⃣ Agent Login
+All files deployed together: `Agent{id}.py`, `Agent{id}.conf`, cert, key, and CA public cert
 
+### 3️⃣ Agent Login
+
+* Agent reads `Agent{id}.conf` to load credentials 
 * Agent presents mTLS certificate during TLS handshake (verified by Nginx)
-* Agent sends credentials — server validates against bcrypt hash in DB
-* Server registers/updates agent record and returns auth token for the session
+* Agent sends username and password — server validates against bcrypt hash
+* Server registers/updates agent record, stores version from config, and returns auth token
 
-### 3️⃣ Beaconing (`/beacon`)
+### 4️⃣ Beaconing (`/beacon`)
 
 Agents periodically send encrypted data:
 
@@ -477,10 +534,10 @@ Agents periodically send encrypted data:
 
 Server verifies mTLS certificate (Nginx layer), decrypts Fernet payload, updates last seen, marks agent online, and dispatches pending tasks.
 
-### 4️⃣ Task Dispatching
+### 6️⃣ Task Dispatching
 
 * If `agent_id` is set → task sent to single agent
-* If `agent_group` is set → task sent to all matching agents
+* If `agent_group` is set → task sent to all agents matching the group from their config files
 
 ```json
 { "type": "shell", "command": "whoami", "agent_id": "agent1" }
@@ -498,10 +555,10 @@ Server verifies mTLS certificate (Nginx layer), decrypts Fernet payload, updates
 { "type": "shell", "command": "whoami", "recurring_at": "60min", "agent_group": "monitoring" }
 ```
 
-### 5️⃣ Result Submission (`/result`)
+### 7️⃣ Result Submission (`/result`)
 
 * Agent presents mTLS certificate (Nginx verifies)
-* Agent sends Fernet-encrypted results
+* Agent sends Fernet-encrypted results with task ID
 * Server decrypts, stores output, and marks task completed
 
 ---
@@ -529,7 +586,8 @@ TENET/
 │   ├── plugins.py          # /plugins/, /plugins/<filename>, /plugins/run
 │   ├── dashboard.py        # /dashboard, /info, /alerts, /get_alerts, chart endpoints
 │   ├── ai.py               # /chat (FAQ), /ai/chat (Gemini), /chat page
-│   └── revshell.py         # /revshell, /tools/<filename>
+│   ├─ revshell.py         # /revshell, /tools/<filename>
+│   
 │
 ├── services/
 │   ├── __init__.py
@@ -544,11 +602,14 @@ TENET/
 ├── keys/
 │   ├── ca.crt              # CA public certificate
 │   ├── ca.key              # CA private key ⚠️ never share
+│   ├── ca.srl              # Serial number tracking
 │   ├── server.crt          # Server TLS certificate
 │   ├── server.key          # Server private key
 │   ├── agent1.crt        # Per-agent certificates (auto-generated at creation)
-│   ├── agent1.key
-│   └── ...
+│   ├── agent1.key        # Per-agent private keys
+│   
+│
+│
 │
 ├── upload/                 # Uploaded files
 ├── plugins/                # Server-side plugins
@@ -566,10 +627,13 @@ TENET/
 * 🔒 mTLS enforced on all agent routes via Nginx
 * 🔒 HTTP automatically redirected to HTTPS
 * 🔒 All passwords (operators and agents) hashed with bcrypt — never stored in plaintext
+* 🔒 Agent config files contain hashed passwords protect with `chmod 600`
 * 🔒 Each agent holds a unique certificate — revoking one does not affect others
 * 🔒 Admin dashboard requires both login credentials and a browser-imported certificate
 * 🔒 CA public cert distributed to agents for server verification; CA private key stays server-side only
+* 🔒 Agent update endpoints require token authentication and hash verification
 * ⚠️ Flask must bind to `127.0.0.1` only — never `0.0.0.0`
+* ⚠️ Config files must be secured and only distributed to intended agent machines
 * ⚠️ Restrict plugin execution to trusted users
 * ⚠️ Monitor reverse shell usage carefully
 * ⚠️ Secure Telegram bot tokens properly
@@ -596,3 +660,6 @@ TENET/
 * Retry/failure handling
 * Docker deployment
 * Automatic certificate renewal before expiry
+* Agent health monitoring and auto-remediation
+* Differential updates (only changed files)
+* Update rollback functionality
