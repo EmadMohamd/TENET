@@ -1,196 +1,279 @@
-# 🛰️ Remote Agent Control Server
+# 🛰️TENET: Remote Agent Control Server
 
-A **Flask-based command-and-control style server** designed for managing remote agents, dispatching tasks, collecting results, and monitoring system activity in real time.
+A **Flask-based command-and-control style server** for managing remote agents, dispatching tasks, collecting results, and monitoring activity in real time.
 
 > ⚠️ Intended strictly for **educational, research, and controlled automation environments only**
 
 ---
 
-## ⚙️ Setup Instructions
+# 📚 Table of Contents
 
-This project requires additional configuration (database, environment variables, and mTLS setup).
-
-➡️ Please follow the full setup guide in [SETUP.md](./SETUP.md)
+* [Overview](#-overview)
+* [Setup](#️-setup)
+* [Core Features](#-core-features)
+* [Security Architecture](#-security-architecture)
+* [Authentication & Access Control](#-authentication--access-control)
+* [Agent Lifecycle](#-agent-lifecycle)
+* [Tasking System](#-tasking-system)
+* [Monitoring & Analytics](#-monitoring--analytics)
+* [Plugin System](#-plugin-system)
+* [AI Security Operations Assistant](#-ai-security-operations-analytics-assistant)
+* [Database](#️-database-sqlite)
+* [Project Structure](#-project-structure)
+* [Security Notes](#️-security-notes)
+* [Dashboard Sections](#-dashboard-sections)
+* [Future Improvements](#-future-improvements)
+* [Suggested Enhancements](#-suggested-enhancements)
 
 ---
 
-# 🚀 Features
+# 🔍 Overview
+
+The platform provides:
+
+* Secure remote agent communication
+* Real-time monitoring and analytics
+* Task scheduling and recurring execution
+* Group-based agent management
+* Automatic agent updates
+* Plugin-based extensibility
+* AI-assisted security analytics
+* mTLS-based authentication and identity verification
+
+---
+
+# ⚙️ Setup
+
+This project requires additional configuration:
+
+* Database initialization
+* Environment variables
+* HTTPS + Nginx configuration
+* mTLS certificate setup
+
+➡️ Follow the full setup guide in `SETUP.md`
+
+---
+
+# 🚀 Core Features
 
 ## 🔐 Secure Communication
 
-* All agent communication is encrypted using **Fernet symmetric encryption**
-* Acts as an additional obfuscation layer on top of HTTPS — even if an attacker
-  manages to inspect TLS traffic through a misconfigured proxy or compromised
-  intermediary, the payload remains opaque without the Fernet key
-* Protects:
+All agent communication is encrypted using **Fernet symmetric encryption**.
 
-  * Beacon data
-  * Tasking instructions
-  * Execution results
-* Sensitive operations require an **API key**
-* All traffic is served over **HTTPS** — Nginx redirects any HTTP request to HTTPS automatically
-* Agent-to-server communication is additionally secured with **Mutual TLS (mTLS)** — see the mTLS section below
+This acts as an additional obfuscation layer on top of HTTPS. Even if TLS traffic is inspected through a compromised intermediary or misconfigured proxy, the payload remains unreadable without the Fernet key.
+
+### Protected Data
+
+* Beacon data
+* Task instructions
+* Execution results
+
+### Additional Security Layers
+
+* HTTPS enforced through Nginx
+* Automatic HTTP → HTTPS redirection
+* API key protection for sensitive routes
+* Mutual TLS (mTLS) for agent-server communication
 
 ---
 
-## 🆙 Agent Updates
+## 👤 Agent Management
 
-Agents can be updated automatically with periodic checks for new versions.
+Create and manage agents directly from the dashboard.
 
-### How It Works
+### Required Fields
 
-* Agents periodically check the `/api/agent_update` endpoint for available updates
-* Update checks happen on a **configurable interval** (default: 2 hours)
-* Server compares agent's current version against the available version
-* If an update is available, agent downloads, verifies hash, and restarts with new version
-* Server-side outages don't crash agents — they continue operating and retry later
+* Agent ID
+* Username
+* Password
+* `AGENT_VERSION`
+
+### Optional Fields
+
+* `agent_group`
+
+### Agent Capabilities
+
+Agents are:
+
+* Stored in SQLite
+* Assigned a default role (`agent`)
+* Logically grouped using `agent_group`
+* Automatically issued a unique mTLS certificate during creation
+
+### Password Security
+
+Passwords are:
+
+* Hashed with bcrypt before storage
+* Never stored in plaintext
+* Never written unencrypted to the database
+
+---
+
+## 📄 Agent Configuration Files
+
+When an agent is created, the server automatically generates a configuration file containing:
+
+* Credentials
+* Group assignment
+* Version information
+* Certificate paths
+
+### Naming Convention
+
+```text
+Agent{agent_id}.conf
+```
+
+Example:
+
+```text
+Agent1.conf
+```
+
+---
+
+## 🆙 Automatic Agent Updates
+
+Agents can automatically update themselves through periodic version checks.
 
 ### Update Flow
 
-```
+```text
 Agent (v1.0.0)                    Server
+
     │                                │
     ├─ POST /api/agent_update ─────>│
     │  (version: 1.0.0)             │
     │                               │
-    │<─ {update: false} ────────────┤  (no update available)
+    │<─ {update: false} ────────────┤
     │                               │
-    │ [continue beaconing]           │
+    │ [continue beaconing]          │
     │                               │
-    │ [2 hours later]                │
+    │ [2 hours later]               │
     │                               │
     ├─ POST /api/agent_update ─────>│
     │  (version: 1.0.0)             │
     │                               │
-    │<─ {update: true,             ──┤  (update available!)
-    │    download_url: "...",        │
-    │    sha256: "abc123..."}        │
+    │<─ {update: true,              ─┤
+    │    download_url: "...",       │
+    │    sha256: "abc123..."}       │
     │                               │
-    ├─ GET /api/agent_update/agent.py─>│
+    ├─ GET /api/agent_update/... ──>│
     │                               │
-    │<───── [binary file] ──────────┤
+    │<────── [binary file] ─────────┤
     │                               │
     ├─ Verify hash ✓                │
     │ Launch updater                │
     │ Restart with v1.0.1           │
 ```
 
-### Update Security
+### Update Features
 
-* **Hash Verification** — SHA256 hash verified on client side before installation
-* **Token Authentication** — Update endpoints require valid API token
-* **Graceful Degradation** — Server outages don't crash agents; they continue operating
-* **Automatic Retry** — Failed updates are retried on the next scheduled check interval
-
-
-## 👤 Agent Management
-
-* Create and manage agents directly from the dashboard
-* Required fields:
-
-  * Agent ID
-  * Username
-  * Password
-  * AGENT_VERSION (current version of the agent)
-* Optional:
-
-  * **Agent Group**
-* Agents are:
-
-  * Stored in SQLite
-  * Assigned a default role (`agent`)
-  * Can be logically grouped using `agent_group`
-  * **Automatically issued a unique mTLS certificate at creation time**
-* Passwords are **hashed with bcrypt** before storage — plaintext credentials are never written to the database
-* Enables structured and controlled onboarding
+* Configurable update interval (default: 2 hours)
+* SHA256 verification before installation
+* Token-authenticated update endpoints
+* Graceful handling of server outages
+* Automatic retry on failed updates
 
 ---
 
-## 📄 Agent Configuration File
-
-When an agent is created via the dashboard, the server automatically generates a configuration file containing the agent's credentials and group assignment.
-
-### Config File Format
-
-**Filename:** `Agent{agent_id}.conf`
-
-**Example:** `Agent1.conf`
-
+# 🔒 Security Architecture
 
 ## 🔒 Mutual TLS (mTLS)
 
-Mutual TLS extends standard HTTPS so that **both the server and the agent prove their identity** during the TLS handshake. An agent without a valid, CA-signed certificate cannot establish a connection at all — the request is rejected at the network layer before reaching Flask.
+Mutual TLS ensures that both the server and the agent authenticate each other during the TLS handshake.
 
-### How It Works
+Agents without valid CA-signed certificates are rejected before requests ever reach Flask.
 
-```
+---
+
+## 🧱 mTLS Handshake Flow
+
+```text
 Agent                                    Nginx (Server)
+
   |                                           |
   |──── ClientHello ─────────────────────────►|
   |◄─── ServerHello + server.crt ────────────|
-  |◄─── CertificateRequest ──────────────────|   ← mTLS step
-  |──── agent-001.crt ───────────────────────►|   ← agent proves identity
-  |──── CertificateVerify (signature) ───────►|   ← proves it owns the key
+  |◄─── CertificateRequest ──────────────────| ← mTLS
+  |──── agent-001.crt ───────────────────────►|
+  |──── CertificateVerify ───────────────────►|
   |                                           |
   |       TLS session established             |
-  |──── POST /beacon (encrypted) ────────────►|
+  |──── POST /beacon ────────────────────────►|
   |                                           |
-  |                               Nginx forwards to Flask
-  |                               with headers:
-  |                               X-Client-Cert-CN: agent-001
-  |                               X-SSL-Verified: SUCCESS
+  |                         Nginx forwards verified
+  |                         requests to Flask with:
+  |
+  |                         X-Client-Cert-CN
+  |                         X-SSL-Verified
 ```
 
-Nginx handles all certificate verification. Flask receives only already-verified requests, with the agent's identity injected as a request header (`X-Client-Cert-CN`).
+Nginx performs certificate verification and forwards verified identity headers to Flask.
 
 ---
 
-### Certificate Hierarchy (PKI)
+## 🏗️ Certificate Hierarchy (PKI)
 
-```
-Root CA  (ca.crt / ca.key)         ← lives on the server only
-├── server.crt                     ← proves server identity to agents
-├── agent-001.crt                  ← proves agent-001's identity to server
-└── agent-002.crt                  ← each agent gets its own unique cert
+```text
+Root CA (ca.crt / ca.key)
+├── server.crt
+├── agent-001.crt
+└── agent-002.crt
 ```
 
-* The CA **public** certificate (`ca.crt`) is distributed to agents so they can verify the server's identity during the TLS handshake
-* The CA **private** key (`ca.key`) never leaves the server and is never needed by agents — it is only used server-side to sign new certificates
-* All certificates trace back to this single root of trust
+### PKI Notes
+
+* `ca.crt` is distributed to agents
+* `ca.key` never leaves the server
+* Each agent receives a unique certificate
+* All trust chains originate from the Root CA
 
 ---
 
-### Agent Certificate Generation (Automatic)
+## ⚙️ Automatic Certificate Generation
 
-When an agent is created via the dashboard, the server **automatically generates a certificate** for that agent. No manual OpenSSL commands are needed.
+When an agent is created:
 
-The creation flow:
-
-1. Admin fills in Agent ID, username, password, agent version, and group in the dashboard
-2. Password is immediately hashed with bcrypt — plaintext is never stored
+1. Admin enters agent details in dashboard
+2. Password is bcrypt-hashed immediately
 3. Server generates:
-   * `agent{id}.key` — RSA 2048-bit private key
-   * `agent{id}.csr` — Certificate Signing Request (deleted after signing)
-   * `agent{id}.crt` — Certificate signed by the CA (stored in `./keys/`)
-4. Config file `Agent{id}.conf` is created with all credentials
-6. The agent file, config file, cert, and key are deployed together onto the agent machine
-7. The full mTLS bundle (agent file + config file + cert + key + CA public cert) must be present on the agent machine for it to operate — possession of the agent file alone is not sufficient to connect
 
-The CN (Common Name) in each agent certificate is set to the Agent ID. Nginx extracts this and forwards it to Flask as `X-Client-Cert-CN`, which is how the server identifies which agent is communicating.
+   * `agent{id}.key`
+   * `agent{id}.csr`
+   * `agent{id}.crt`
+4. Configuration file is generated
+5. Agent package is deployed
+
+### Deployment Bundle
+
+Each agent requires:
+
+* Agent executable/script
+* Config file
+* Agent certificate
+* Agent private key
+* CA public certificate
+
+Possession of the agent file alone is insufficient for authentication.
 
 ---
 
-### Certificate Storage Layout
+## 📂 Certificate Storage Layout
 
-```
+```text
 keys/
-├── ca.crt              ← CA public cert  (distributed to agents)
-├── ca.key              ← CA private key  (server only, never shared)
-├── ca.srl              ← Serial number tracking
-├── server.crt          ← Server TLS certificate
-├── server.key          ← Server private key
-├── agent1.crt        ← Per-agent certificate (auto-generated at creation)
-├── agent1.key        ← Per-agent private key
+
+├── ca.crt
+├── ca.key
+├── ca.srl
+├── server.crt
+├── server.key
+├── agent1.crt
+├── agent1.key
 ├── agent2.crt
 ├── agent2.key
 └── ...
@@ -198,31 +281,42 @@ keys/
 
 ---
 
-### Nginx Configuration
+## 🌐 Nginx TLS Architecture
 
-Nginx sits in front of Flask and handles all TLS. Flask only binds to `127.0.0.1:5000` (loopback) and is unreachable directly from the network.
-
-```
+```text
 Internet / Agents / Admins
-         ↓
-   [Nginx :443]   ← mTLS enforcement, cert verification, identity extraction
-         ↓
-   [Flask :5000]  ← receives only verified requests with identity in headers
+           ↓
+     [ Nginx :443 ]
+           ↓
+     [ Flask :5000 ]
 ```
 
-Key Nginx directives:
+### Responsibilities
+
+#### Nginx
+
+* HTTPS termination
+* mTLS enforcement
+* Certificate validation
+* Identity extraction
+* HTTP → HTTPS redirect
+
+#### Flask
+
+* Application logic
+* Receives verified requests only
+* Bound to loopback (`127.0.0.1`) only
+
+### Example Nginx Configuration
 
 ```nginx
-# Require client certificates signed by the CA
 ssl_client_certificate /path/to/keys/ca.crt;
-ssl_verify_client      required;
+ssl_verify_client required;
 
-# Forward verified identity to Flask
-proxy_set_header X-Client-Cert-CN   $ssl_client_s_dn_cn;
-proxy_set_header X-SSL-Verified     $ssl_client_verify;
-proxy_set_header X-Client-Cert-DN   $ssl_client_s_dn;
+proxy_set_header X-Client-Cert-CN $ssl_client_s_dn_cn;
+proxy_set_header X-SSL-Verified $ssl_client_verify;
+proxy_set_header X-Client-Cert-DN $ssl_client_s_dn;
 
-# Redirect all HTTP to HTTPS
 server {
     listen 80;
     return 301 https://$host$request_uri;
@@ -231,214 +325,178 @@ server {
 
 ---
 
-### Certificate Management
+# 🔑 Authentication & Access Control
 
+## 👨‍💼 Initial Admin Bootstrap
 
+On first startup:
 
-### Security Notes for mTLS
+* If no admins exist:
 
-* **`ca.key` is the most critical secret** — it never leaves the server and agents have no need for it. Only the CA public cert (`ca.crt`) is distributed to agents for server verification.
-* **Each agent has a unique key pair** — revoking one agent does not affect others.
-* **The full mTLS bundle must be present on the agent machine** — the agent file, config file, cert, and key must accompany each other for any connection to succeed.
-* **Config files contain sensitive paths** — protect with `chmod 600` and restrict distribution to intended machines
-* **Flask binds to loopback only** (`127.0.0.1:5000`) — direct access bypasses Nginx and mTLS entirely. Never bind Flask to `0.0.0.0`.
+  * One-time admin registration is enabled
+  * First account becomes administrator
+
+* After first admin creation:
+
+  * Public registration is permanently disabled
+  * Only admins can create additional users/admins
 
 ---
 
-## 🗄️ Database (SQLite)
+## 🧑‍💻 Dashboard Authentication
 
-* Lightweight, persistent storage
-* Stores:
+Operators authenticate using:
 
-  * Agents
-  * Tasks
-  * Users
-  * Scheduled & recurring task metadata
+* Username/password login
+* bcrypt password validation
+* Session-based authentication
 
-### Agents Table
+Passwords are never stored in plaintext.
 
-The `agents` table includes:
+---
 
-* `id`
-* `hostname`
-* `user`
-* `os`
-* `ip`
-* `last_seen`
+## 🔒 Admin mTLS Certificates
+
+Administrators are also issued browser certificates (`.p12`).
+
+### Benefits
+
+* TLS-layer identity verification
+* Browser automatically presents cert
+* Dashboard access requires:
+
+  * Valid login credentials
+  * Valid admin certificate
+
+---
+
+## 🤖 Agent Authentication
+
+Agents authenticate using:
+
+* mTLS certificates
+* Username/password validation
+* Token-based authenticated sessions
+
+### Authentication Flow
+
+1. Agent presents certificate
+2. Nginx validates mTLS
+3. Agent sends credentials
+4. Server validates bcrypt hash
+5. Auth token issued
+6. Token used for subsequent API requests
+
+---
+
+# 📡 Agent Lifecycle
+
+## 1️⃣ Agent Creation
+
+Admin creates agent with:
+
+* Agent ID
+* Username
+* Password
+* Agent version
+* Optional group
+
+### Server Actions
+
+* Hash password with bcrypt
+* Generate mTLS certificates
+* Generate config file
+* Embed paths into agent file
+* Store metadata in database
+
+### Deployment Files
+
+```text
+Agent{id}.py
+Agent{id}.conf
+agent{id}.crt
+agent{id}.key
+ca.crt
+```
+
+---
+
+## 2️⃣ Agent Login
+
+Agent:
+
+* Loads credentials from config
+* Performs mTLS handshake
+* Authenticates with credentials
+* Receives auth token
+
+Server:
+
+* Registers/updates metadata
+* Stores version info
+* Tracks agent status
+
+---
+
+## 3️⃣ Beaconing (`/beacon`)
+
+Agents periodically send encrypted metadata.
+
+Example:
+
+```json
+{
+  "id": "agent1",
+  "hostname": "DESKTOP-123",
+  "user": "john",
+  "os": "Windows 10"
+}
+```
+
+Server:
+
+* Verifies mTLS identity
+* Decrypts Fernet payload
+* Updates `last_seen`
+* Marks agent online
+* Dispatches queued tasks
+
+---
+
+## 4️⃣ Result Submission (`/result`)
+
+Agents submit encrypted task results.
+
+Server:
+
+* Verifies certificate
+* Decrypts payload
+* Stores results
+* Marks task complete
+
+---
+
+# 🖥️ Tasking System
+
+## ⚡ Task Creation
+
+Tasks can target:
+
+* A specific `agent_id`
+* An `agent_group`
+
+### Mutual Exclusivity Rule
+
+You must provide:
+
+* `agent_id` **OR**
 * `agent_group`
 
-This enables tasking and filtering based on logical groupings, as well as automatic update distribution.
+Not both.
 
 ---
 
-## 📡 Real-Time Agent Monitoring
-
-Track all active agents with:
-
-* Hostname
-* Operating system
-* Username
-* IP address
-* Last seen timestamp
-* Agent group
-
-### ✅ Automatic Tracking
-
-* Online/offline detection
-* Status updates via beaconing
-* Activity visibility in real time
-
----
-
-## 🚨 Alerts & Logging (`/alerts`)
-
-Centralized logging and alerting system.
-
-### 📄 Info Logs
-
-* Task creation
-* Agent creation
-* Plugin execution
-
-### ❗ Critical Logs
-
-* Reverse shell creation events
-* Low task execution rates
-* Agents offline beyond threshold
-* Multiple failed login attempts
-
-### 📬 Telegram Integration
-
-* Logs are sent daily to a **Telegram bot**
-* Admins receive summaries of:
-
-  * System activity
-  * Security alerts
-  * Agent health
-
----
-
-## 📊 Analytics Dashboard (`/info`)
-
-Visual insights into system performance.
-
-### 🌍 Agent Map
-
-* Displays IP-based geolocation of agents
-
-### 📈 Task Execution Chart
-
-* Bar chart showing number of executed tasks over time
-
-### 🥧 Pie Charts
-
-* Execution success rate per agent
-* Online vs offline agent distribution
-
----
-
-## 📁 File Management
-
-* Upload files via dashboard
-* Agents can:
-
-  * Download files
-  * Execute them
-  * Store locally
-
----
-
-## 🔑 Authentication System
-
-### 👨‍💼 First-Time Admin Initialization
-
-When the server is started for the very first time, it supports a secure bootstrap process to create the initial administrator account.
-
-⚙️ Initialization Behavior
-* If the users table contains no existing accounts:
-* The application enables a one-time admin registration
-* The first user created is automatically assigned the admin role
-* Once an admin account exists:
-* Open registration is disabled permanently
-* Additional users must be created through the dashboard by an admin
-
-### 🧑‍💻 Operator Dashboard Login
-
-* Operators access the dashboard via a **username and password login page**
-* Credentials are validated against the `users` table
-* Passwords are stored as **bcrypt hashes** — plaintext is never written to the database
-* On successful login a session is established granting access to the dashboard
-* Admin accounts are created with passwords hashed at account creation time — only the hash is stored
-
-### 🔒 Admin mTLS (Dashboard Certificate)
-
-* In addition to login credentials, administrators are issued a **browser certificate** (`.p12` format)
-* The certificate is imported once into the browser and presented automatically on every subsequent visit
-* Provides an additional layer of identity verification at the TLS layer — the session cannot be established without a valid admin certificate signed by the server's CA
-
-### 🤖 Agent Authentication
-
-* mTLS certificate issued at agent creation — must be present on the agent machine alongside the agent file and config file
-* Credentials (username and password) stored as bcrypt hash in both database and config file — never stored in plaintext
-* Token-based session returned after successful credential validation
-* Token used for all subsequent API calls within the session
-
----
-
-## 🧩 Plugin System
-
-* Dynamically load Python modules
-* Executed **in-memory on agents**
-* No redeployment required
-
-💡 Use cases:
-
-* Extending functionality
-* Rapid experimentation
-* Modular operations
-
----
-
-## 🤖 AI Security Operations Analytics Assistant
-
-* AI-driven Analytics Assistant designed to act as a virtual SOC analyst. It parses complex database strings into actionable security intelligence.
-
-🧠 Core Capabilities:
-
-* Identify Anomalies: Detect agents beaconing from unexpected IPs or outside expected intervals
-* Health Audits: Summarize which agent groups are underperforming or facing high task failure rates
-* Incident Summarization: Convert raw logs into high-level security briefings
-* Contextual Queries: Answer natural language questions like "Which agents in the 'test' group are currently online?"
-
-📥 Dual-Interface Access:
-
-* Dedicated Analytics Page (`/chat`): A full-screen workspace for deep-dive investigations and historical data analysis
-* Global Security Widget: A persistent, floating interface available on every dashboard page for real-time queries without leaving the current view
-
----
-
-## 🖥️ Dashboard (`/dashboard`)
-
-### ⚡ Task Creation
-
-* Create and assign tasks to agents
-
-### 🎯 Targeting Modes
-
-Tasks can be dispatched using **one of two targeting methods**:
-
-* **By Agent ID**
-* **By Agent Group**
-
-⚠️ **Mutual Exclusivity Rule**
-
-* You must provide **either** `agent_id` **OR** `agent_group`
-* Providing both is **not allowed**
-* Providing neither is **not allowed**
-
----
-
-### 📦 Supported Task Types
+## 📦 Supported Task Types
 
 * `shell`
 * `download`
@@ -449,10 +507,11 @@ Tasks can be dispatched using **one of two targeting methods**:
 
 ---
 
-### 👥 Group-Based Tasking
+## 👥 Group-Based Tasking
 
-* Tasks can be assigned to all agents within a specific `agent_group`
-* Enables bulk operations, segmented tasking, and role-based execution patterns
+Tasks may target all agents in a group.
+
+Example:
 
 ```json
 {
@@ -464,183 +523,295 @@ Tasks can be dispatched using **one of two targeting methods**:
 
 ---
 
-### 🔌 Reverse Shell Support
+## 🔌 Reverse Shell Support
 
-* Launch reverse shell tasks directly from dashboard
-* Specify target agent ID and listening port
+* Launch reverse shell tasks from dashboard
+* Specify:
 
----
-
-### ⏱️ Task Scheduling
-
-* Schedule tasks for future execution with an exact execution time
-* Compatible with both Agent ID and Agent Group targeting
+  * Target agent
+  * Listening port
 
 ---
 
-### 🔁 Recurring Tasks
+## ⏱️ Scheduled Tasks
 
-* Automate repeated execution at defined intervals (minutes, hourly, daily, custom)
-* Fully compatible with group-based targeting
+Execute tasks at a future time.
 
----
-
-### ⚙️ Scheduling Behavior
-
-* Tasks stored in database and executed when agents beacon after scheduled time
-* Recurring tasks automatically re-queued
-* Fully integrated with task dispatch system
-
----
-
-## 📡 Task Lifecycle
-
-### 1️⃣ Agent Creation
-
-* Admin creates agent via dashboard with:
-  * Agent ID
-  * Username
-  * Password
-  * AGENT_VERSION
-  * Optional: Agent Group
-* Password hashed with bcrypt before storage — plaintext never persisted
-* Server automatically generates:
-  * mTLS certificate for the agent
-  * Configuration file (`Agent{id}.conf`) containing credentials, version, and group
-* Agent file (`Agent{id}.py`) written with cert and config paths embedded
-* Agent optionally assigned an `agent_group`
-
-All files deployed together: `Agent{id}.py`, `Agent{id}.conf`, cert, key, and CA public cert
-
-### 3️⃣ Agent Login
-
-* Agent reads `Agent{id}.conf` to load credentials 
-* Agent presents mTLS certificate during TLS handshake (verified by Nginx)
-* Agent sends username and password — server validates against bcrypt hash
-* Server registers/updates agent record, stores version from config, and returns auth token
-
-### 4️⃣ Beaconing (`/beacon`)
-
-Agents periodically send encrypted data:
+Example:
 
 ```json
 {
-  "id": "agent1",
-  "hostname": "DESKTOP-123",
-  "user": "john",
-  "os": "Windows 10"
+  "type": "shell",
+  "command": "whoami",
+  "execute_at": "2026-04-15T10:00:00",
+  "agent_group": "ops"
 }
 ```
 
-Server verifies mTLS certificate (Nginx layer), decrypts Fernet payload, updates last seen, marks agent online, and dispatches pending tasks.
+---
 
-### 6️⃣ Task Dispatching
+## 🔁 Recurring Tasks
 
-* If `agent_id` is set → task sent to single agent
-* If `agent_group` is set → task sent to all agents matching the group from their config files
+Automate repeated execution.
 
-```json
-{ "type": "shell", "command": "whoami", "agent_id": "agent1" }
-```
+Example:
 
 ```json
-{ "type": "shell", "command": "hostname", "agent_group": "blue_team" }
+{
+  "type": "shell",
+  "command": "whoami",
+  "recurring_at": "60min",
+  "agent_group": "monitoring"
+}
 ```
 
-```json
-{ "type": "shell", "command": "whoami", "execute_at": "2026-04-15T10:00:00", "agent_group": "ops" }
-```
+### Scheduling Behavior
 
-```json
-{ "type": "shell", "command": "whoami", "recurring_at": "60min", "agent_group": "monitoring" }
-```
-
-### 7️⃣ Result Submission (`/result`)
-
-* Agent presents mTLS certificate (Nginx verifies)
-* Agent sends Fernet-encrypted results with task ID
-* Server decrypts, stores output, and marks task completed
+* Stored in database
+* Triggered on beacon
+* Automatically re-queued
 
 ---
 
-## 📦 Project Structure
+# 📡 Monitoring & Analytics
 
-```
+## 📡 Real-Time Agent Monitoring
+
+Track:
+
+* Hostname
+* OS
+* Username
+* IP address
+* Last seen
+* Agent group
+
+### Monitoring Features
+
+* Online/offline detection
+* Real-time status updates
+* Beacon-based health visibility
+
+---
+
+## 🚨 Alerts & Logging (`/alerts`)
+
+Centralized logging system.
+
+### Info Logs
+
+* Task creation
+* Agent creation
+* Plugin execution
+
+### Critical Alerts
+
+* Reverse shell creation
+* Low task execution rates
+* Offline agents
+* Failed login attempts
+
+---
+
+## 📬 Telegram Integration
+
+Daily summaries sent to Telegram bot.
+
+### Included Data
+
+* Security alerts
+* Agent health
+* System activity
+
+---
+
+## 📊 Analytics Dashboard (`/info`)
+
+### 🌍 Agent Geolocation Map
+
+Displays IP-based agent geolocation.
+
+### 📈 Task Charts
+
+* Task execution frequency
+* Success/failure distribution
+
+### 🥧 Pie Charts
+
+* Online vs offline distribution
+* Success rate per agent
+
+---
+
+# 📁 File Management
+
+Operators can upload files through the dashboard.
+
+Agents can:
+
+* Download files
+* Execute files
+* Store files locally
+
+---
+
+# 🧩 Plugin System
+
+Supports dynamically loaded Python modules.
+
+### Features
+
+* In-memory execution on agents
+* No redeployment required
+* Modular architecture
+
+### Use Cases
+
+* Rapid experimentation
+* Feature extensions
+* Operational tooling
+
+---
+
+# 🤖 AI Security Operations Analytics Assistant
+
+AI-powered analytics assistant acting as a virtual SOC analyst.
+
+## 🧠 Capabilities
+
+### Identify Anomalies
+
+* Unexpected IP beaconing
+* Irregular beacon intervals
+
+### Health Audits
+
+* Underperforming groups
+* High task failure rates
+
+### Incident Summaries
+
+* Convert raw logs into high-level reports
+
+### Contextual Queries
+
+Example:
+
+> "Which agents in the `test` group are online?"
+
+---
+
+## 📥 Access Interfaces
+
+### Dedicated Analytics Workspace (`/chat`)
+
+Full-screen investigation interface.
+
+### Global Security Widget
+
+Persistent dashboard assistant for quick analysis.
+
+---
+
+# 🗄️ Database (SQLite)
+
+SQLite provides lightweight persistent storage.
+
+## Stores
+
+* Agents
+* Tasks
+* Users
+* Scheduled task metadata
+* Recurring task metadata
+
+---
+
+## Agents Table
+
+Includes:
+
+* `id`
+* `hostname`
+* `user`
+* `os`
+* `ip`
+* `last_seen`
+* `agent_group`
+
+---
+
+# 📦 Project Structure
+
+```text
 TENET/
-│
-├── app.py                  # Entry point — creates app, registers blueprints
-├── config.py               # All constants and environment variables
-├── database.py             # DB connection management (get_db, close_db)
+
+├── app.py
+├── config.py
+├── database.py
 │
 ├── middleware/
 │   ├── __init__.py
-│   └── auth.py             # require_token, require_mtls decorators
+│   └── auth.py
 │
 ├── routes/
-│   ├── __init__.py
-│   ├── auth.py             # /login, /logout
-│   ├── agents.py           # /agents/, /agents/<id>, /agents-data, /agent-create
-│   ├── beacon.py           # /beacon, /result
-│   ├── tasks.py            # /task, /tasks/, /tasks-data, /tasks/<uuid>
-│   ├── files.py            # /upload, /uploads/, /uploads/<filename>, /files-data
-│   ├── plugins.py          # /plugins/, /plugins/<filename>, /plugins/run
-│   ├── dashboard.py        # /dashboard, /info, /alerts, /get_alerts, chart endpoints
-│   ├── ai.py               # /chat (FAQ), /ai/chat (Gemini), /chat page
-│   ├─ revshell.py         # /revshell, /tools/<filename>
-│   
+│   ├── auth.py
+│   ├── agents.py
+│   ├── beacon.py
+│   ├── tasks.py
+│   ├── files.py
+│   ├── plugins.py
+│   ├── dashboard.py
+│   ├── ai.py
+│   └── revshell.py
 │
 ├── services/
-│   ├── __init__.py
-│   ├── crypto.py           # encrypt_data, decrypt_data (Fernet helpers)
-│   ├── scheduler.py        # recurring_scheduler, restart_recurring_tasks
-│   ├── telegram.py         # send_telegram_logs
-│   ├── geo.py              # get_location, get_online_offline_counts
-│   ├── charts.py           # tasks_execution_timestamps, task_success_rate
-│   ├── alerts.py           # gen_alerts
-│   └── ai.py               # ask_ai, build_context
+│   ├── crypto.py
+│   ├── scheduler.py
+│   ├── telegram.py
+│   ├── geo.py
+│   ├── charts.py
+│   ├── alerts.py
+│   └── ai.py
 │
 ├── keys/
-│   ├── ca.crt              # CA public certificate
-│   ├── ca.key              # CA private key ⚠️ never share
-│   ├── ca.srl              # Serial number tracking
-│   ├── server.crt          # Server TLS certificate
-│   ├── server.key          # Server private key
-│   ├── agent1.crt        # Per-agent certificates (auto-generated at creation)
-│   ├── agent1.key        # Per-agent private keys
-│   
+│   ├── ca.crt
+│   ├── ca.key
+│   ├── server.crt
+│   ├── server.key
+│   ├── agent1.crt
+│   └── agent1.key
 │
-│
-│
-├── upload/                 # Uploaded files
-├── plugins/                # Server-side plugins
-├── tools/                  # Helper tools (Netcat, etc.)
-├── templates/              # HTML templates
-└── static/                 # CSS / JS assets
+├── upload/
+├── plugins/
+├── tools/
+├── templates/
+└── static/
 ```
 
 ---
 
-## 🛡️ Security Notes
+# 🛡️ Security Notes
 
-* 🔒 Encrypted communication (Fernet) — obfuscates payload on top of TLS as an additional layer
-* 🔑 API key protection for sensitive routes
-* 🔒 mTLS enforced on all agent routes via Nginx
-* 🔒 HTTP automatically redirected to HTTPS
-* 🔒 All passwords (operators and agents) hashed with bcrypt — never stored in plaintext
-* 🔒 Agent config files contain hashed passwords protect with `chmod 600`
-* 🔒 Each agent holds a unique certificate — revoking one does not affect others
-* 🔒 Admin dashboard requires both login credentials and a browser-imported certificate
-* 🔒 CA public cert distributed to agents for server verification; CA private key stays server-side only
-* 🔒 Agent update endpoints require token authentication and hash verification
-* ⚠️ Flask must bind to `127.0.0.1` only — never `0.0.0.0`
-* ⚠️ Config files must be secured and only distributed to intended agent machines
-* ⚠️ Restrict plugin execution to trusted users
-* ⚠️ Monitor reverse shell usage carefully
-* ⚠️ Secure Telegram bot tokens properly
+* Fernet encryption layered on top of TLS
+* API key protection for sensitive routes
+* mTLS enforced through Nginx
+* Automatic HTTP → HTTPS redirect
+* bcrypt password hashing
+* Unique certificate per agent
+* Admin dashboard protected with browser certificates
+* Token-authenticated update endpoints
+* SHA256 verification for updates
+* Flask bound to `127.0.0.1` only
+* CA private key never distributed
+* Agent configs should use `chmod 600`
+* Restrict plugin execution to trusted operators
+* Monitor reverse shell usage carefully
+* Secure Telegram bot tokens
 
 ---
 
-## 🔗 Dashboard Sections
+# 🔗 Dashboard Sections
 
 * Live Agents
 * Tasks
@@ -652,14 +823,81 @@ TENET/
 
 ---
 
-## 💡 Future Improvements
+# 🚧 Future Improvements
 
 * Role-Based Access Control (RBAC)
-* Advanced agent grouping (multi-group tagging)
+* Advanced multi-group tagging
 * WebSocket real-time updates
 * Retry/failure handling
 * Docker deployment
-* Automatic certificate renewal before expiry
-* Agent health monitoring and auto-remediation
-* Differential updates (only changed files)
-* Update rollback functionality
+* Automatic certificate renewal
+* Agent health auto-remediation
+* Differential updates
+* Update rollback support
+
+---
+
+# 💡 Suggested Enhancements
+
+Here are additional improvements worth considering:
+
+## 🔐 Security Enhancements
+
+* Certificate Revocation List (CRL) support
+* OCSP validation
+* Per-agent API scopes/permissions
+* Hardware-backed key storage (TPM/YubiKey)
+* Signed plugin verification
+* Audit trail immutability
+
+---
+
+## 📈 Scalability Improvements
+
+* PostgreSQL support
+* Redis-backed task queue
+* Horizontal worker scaling
+* Multi-server agent routing
+* WebSocket/SSE live dashboards
+
+---
+
+## 🤖 Agent Improvements
+
+* Agent self-healing/recovery
+* Agent integrity verification
+* Offline task caching
+* Adaptive beacon intervals
+* Bandwidth-aware update delivery
+
+---
+
+## 🧠 AI / Analytics Enhancements
+
+* Threat scoring system
+* MITRE ATT&CK mapping
+* Behavioral baselining
+* Automated incident timelines
+* AI-generated remediation suggestions
+
+---
+
+## 🛠️ Operational Improvements
+
+* Docker Compose deployment
+* Kubernetes support
+* CI/CD pipelines
+* Backup/restore tooling
+* One-click certificate rotation
+* Admin activity auditing
+
+---
+
+## 📊 Dashboard Enhancements
+
+* Live WebSocket updates
+* Dark/light theme toggle
+* Advanced filtering/search
+* Exportable reports
+* Real-time notification center
+* Interactive task timelines

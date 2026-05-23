@@ -130,7 +130,7 @@ CREATE TABLE "users" (
 
 # 👤 5. Create Admin User
 
-Add Username/Password to the "users" TABLE and set the role to be "admin"
+
 Generate a bcrypt hash:
 
 ```bash
@@ -175,7 +175,36 @@ openssl req -new -key server.key -out server.csr
 
 openssl x509 -req -in server.csr \
     -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -out server.crt -days 365
+    -out server.crt -days 365   
+```
+Create Admin certificate:
+First, generate a 2048-bit RSA key for the admin and a Certificate Signing Request (CSR).
+
+```bash
+openssl genrsa -out admin.key 2048
+```
+
+Generate admin CSR (Common Name should typically be 'admin' or your username)
+```bash
+openssl req -new -key admin.key -out admin.csr
+```
+
+Sign the Admin Certificate with your CA
+Next, use your existing CA (ca.crt and ca.key) to sign the admin CSR and generate the certificate.
+
+```bash
+openssl x509 -req -in admin.csr \
+    -CA ca.crt -CAkey ca.key -CAcreateserial \
+    -out admin.crt -days 365
+```
+
+Export to .p12 (PKCS#12) Format
+Finally, bundle the admin.key, admin.crt, and the ca.crt into a single .p12 file.
+
+```bash
+openssl pkcs12 -export -out admin.p12 \
+    -inkey admin.key -in admin.crt \
+    -certfile ca.crt
 ```
 
 ---
