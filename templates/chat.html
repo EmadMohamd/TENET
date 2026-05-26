@@ -8,6 +8,8 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <style>
         /* ================= GLOBAL (Matches Dashboard) ================= */
         body {
@@ -105,6 +107,13 @@
             border: 1px solid #334155;
             border-bottom-left-radius: 4px;
         }
+
+        /* Markdown structural rules inside AI containers to handle parsing gracefully */
+        .msg-ai p { margin: 0 0 10px 0; }
+        .msg-ai p:last-child { margin-bottom: 0; }
+        .msg-ai ul, .msg-ai ol { margin: 6px 0; padding-left: 24px; }
+        .msg-ai li { margin-bottom: 6px; }
+        .msg-ai hr { border: 0; border-top: 1px solid #475569; margin: 12px 0; opacity: 1; }
 
         /* ================= INPUT AREA ================= */
         .input-area {
@@ -207,10 +216,31 @@
             suggestions: ["Which agents are offline?", "Show recent alerts", "Show Pending Tasks?"]
         };
 
+        function escapeHTML(str) {
+            return str.replace(/[&<>"']/g, m => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[m]);
+        }
+
         function addMessage(text, type) {
             const div = document.createElement("div");
             div.className = `msg ${type === "user" ? "msg-user" : "msg-ai"}`;
-            div.textContent = text;
+
+            // Render HTML if it's an AI message, otherwise use text to maintain safety
+            if (type === "user" || text === "...") {
+                div.innerHTML = escapeHTML(text);
+            } else {
+                if (window.marked && typeof window.marked.parse === 'function') {
+                    div.innerHTML = window.marked.parse(text);
+                } else {
+                    div.innerHTML = escapeHTML(text);
+                }
+            }
+
             messageContainer.appendChild(div);
             messageContainer.scrollTop = messageContainer.scrollHeight;
 
@@ -261,7 +291,29 @@
         userInput.onkeypress = (e) => { if (e.key === "Enter") send(); };
 
         window.onload = () => {
-            addMessage("How can I help you today?", "ai");
+            // Only add the greeting if history is clean or empty
+            const history = JSON.parse(localStorage.getItem("tenet_chat_history") || "[]");
+            if (history.length === 0) {
+                addMessage("How can I help you today?", "ai");
+            } else {
+                // Optional: Reload past chat history if needed, or leave it fresh
+                history.forEach(item => {
+                    // Temporarily bypass history duplicating onto itself during load
+                    const oldHistory = localStorage.getItem("tenet_chat_history");
+
+                    const div = document.createElement("div");
+                    div.className = `msg ${item.type === "user" ? "msg-user" : "msg-ai"}`;
+                    if (item.type === "user") {
+                        div.innerHTML = escapeHTML(item.text);
+                    } else {
+                        div.innerHTML = window.marked && typeof window.marked.parse === 'function' ? window.marked.parse(item.text) : escapeHTML(item.text);
+                    }
+                    messageContainer.appendChild(div);
+
+                    localStorage.setItem("tenet_chat_history", oldHistory);
+                });
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            }
             renderSuggestions();
         };
     </script>
