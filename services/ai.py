@@ -16,9 +16,8 @@ def build_context(db) -> dict:
 
     tasks = db.execute("""
         SELECT task_json, output, scheduled_at, recurring_every, status
-        FROM tasks ORDER BY scheduled_at DESC LIMIT 10
+        FROM tasks ORDER BY scheduled_at DESC LIMIT 40
     """).fetchall()
-
     return {
         "agents":       [dict(r) for r in agents],
         "alerts":       [dict(r) for r in alerts],

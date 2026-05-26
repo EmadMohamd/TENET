@@ -144,7 +144,7 @@ Agents can automatically update themselves through periodic version checks.
 ```text
 Agent (v1.0.0)                    Server
 
-    │                                │
+    │                               │
     ├─ POST /api/agent_update ─────>│
     │  (version: 1.0.0)             │
     │                               │
@@ -157,7 +157,7 @@ Agent (v1.0.0)                    Server
     ├─ POST /api/agent_update ─────>│
     │  (version: 1.0.0)             │
     │                               │
-    │<─ {update: true,              ─┤
+    │<─ {update: true,             ─┤
     │    download_url: "...",       │
     │    sha256: "abc123..."}       │
     │                               │
