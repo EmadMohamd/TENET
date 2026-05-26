@@ -130,28 +130,7 @@ CREATE TABLE "users" (
 
 # 👤 5. Create Admin User
 
-
-Generate a bcrypt hash:
-
-```bash
-python3
-```
-
-```python
-import bcrypt
-print(bcrypt.hashpw(b"yourpassword", bcrypt.gensalt()).decode())
-```
-
-Insert into DB:
-
-```bash
-sqlite3 database.db
-```
-
-```sql
-INSERT INTO users (username, password, role)
-VALUES ('admin', '<PASTE_HASH_HERE>', 'admin');
-```
+Create an Admin user via admin bootstrap registration
 
 ---
 
