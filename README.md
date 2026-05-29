@@ -1,4 +1,4 @@
-# 🛰️TENET: Remote Agent Control Server
+# 🛰️ TENET: Remote Agent Control Server
 
 A **Flask-based command-and-control style server** for managing remote agents, dispatching tasks, collecting results, and monitoring activity in real time.
 
@@ -14,6 +14,7 @@ A **Flask-based command-and-control style server** for managing remote agents, d
 * [Security Architecture](#-security-architecture)
 * [Authentication & Access Control](#-authentication--access-control)
 * [Agent Lifecycle](#-agent-lifecycle)
+* [Agent Stager](#-agent-stager)
 * [Tasking System](#-tasking-system)
 * [Monitoring & Analytics](#-monitoring--analytics)
 * [Plugin System](#-plugin-system)
@@ -125,12 +126,14 @@ When an agent is created, the server automatically generates a configuration fil
 
 ```text
 Agent{agent_id}.conf
+
 ```
 
 Example:
 
 ```text
 Agent1.conf
+
 ```
 
 ---
@@ -168,6 +171,7 @@ Agent (v1.0.0)                    Server
     ├─ Verify hash ✓                │
     │ Launch updater                │
     │ Restart with v1.0.1           │
+
 ```
 
 ### Update Features
@@ -210,6 +214,7 @@ Agent                                    Nginx (Server)
   |
   |                         X-Client-Cert-CN
   |                         X-SSL-Verified
+
 ```
 
 Nginx performs certificate verification and forwards verified identity headers to Flask.
@@ -223,6 +228,7 @@ Root CA (ca.crt / ca.key)
 ├── server.crt
 ├── agent-001.crt
 └── agent-002.crt
+
 ```
 
 ### PKI Notes
@@ -241,10 +247,9 @@ When an agent is created:
 1. Admin enters agent details in dashboard
 2. Password is bcrypt-hashed immediately
 3. Server generates:
-
-   * `agent{id}.key`
-   * `agent{id}.csr`
-   * `agent{id}.crt`
+* `agent{id}.key`
+* `agent{id}.csr`
+* `agent{id}.crt`
 4. Configuration file is generated
 5. Agent package is deployed
 
@@ -277,6 +282,7 @@ keys/
 ├── agent2.crt
 ├── agent2.key
 └── ...
+
 ```
 
 ---
@@ -289,6 +295,7 @@ Internet / Agents / Admins
      [ Nginx :443 ]
            ↓
      [ Flask :5000 ]
+
 ```
 
 ### Responsibilities
@@ -332,14 +339,12 @@ server {
 On first startup:
 
 * If no admins exist:
-
-  * One-time admin registration is enabled
-  * First account becomes administrator
+* One-time admin registration is enabled
+* First account becomes administrator
 
 * After first admin creation:
-
-  * Public registration is permanently disabled
-  * Only admins can create additional users/admins
+* Public registration is permanently disabled
+* Only admins can create additional users/admins
 
 ---
 
@@ -364,9 +369,10 @@ Administrators are also issued browser certificates (`.p12`).
 * TLS-layer identity verification
 * Browser automatically presents cert
 * Dashboard access requires:
+* Valid login credentials
+* Valid admin certificate
 
-  * Valid login credentials
-  * Valid admin certificate
+
 
 ---
 
@@ -417,6 +423,7 @@ Agent{id}.conf
 agent{id}.crt
 agent{id}.key
 ca.crt
+
 ```
 
 ---
@@ -451,6 +458,7 @@ Example:
   "user": "john",
   "os": "Windows 10"
 }
+
 ```
 
 Server:
@@ -474,6 +482,51 @@ Server:
 * Stores results
 * Marks task complete
 
+---
+
+# 🌐 Agent Stager
+
+The platform utilizes a lightweight bootstrap design to provision and initialize new deployments securely. Instead of shipping static binaries or pre-configured scripts containing hardcoded infrastructure credentials, deployment relies on a dual-stage setup workflow utilizing short-lived cryptographic tokens.
+
+### How It Works
+
+1. **Token Generation:** An authenticated administrator creates a registration token via the control panel interface. Tokens are hard-scoped with a fixed 60-minute lifetime expiration constraint.
+2. **Dynamic Provisioning:** The execution machine is provided the lightweight orchestration stager alongside the token. When triggered, the stager reaches out to the server's dedicated endpoints to download context-specific payloads:
+* **Agent Runtime Logic:** The latest verified application codebase.
+* **Target Configuration:** Environmental metadata, specific endpoints, and dynamically mapped credentials.
+* **mTLS Key Material:** Cryptographic unique keypairs and trusted root authorities necessary to negotiate downstream mTLS handshakes.
+
+
+3. **Initialization & Cleanup:** Upon successfully downloading and verifying the components, the files are securely written to disk. The stager then informs the server to flag the token as spent, permanently revoking its validity before executing the main agent process to begin active beacon lifecycle communication.
+
+### Admin Command Generation Interface
+
+Administrators can dynamically provision specific stager execution hooks via the internal route handler logic mapped inside the `agents` blueprint layer.
+
+* **Endpoint:** `POST /agents/admin/generate-stager`
+* **Access Control:** Requires a valid active browser session and administrative authorization token scopes (`@require_token(role="admin")`).
+* **Request Schema:**
+```json
+{
+  "agent_id": "agent_001"
+}
+
+```
+
+
+* **Response Output:** Returns structured workflow data including the unique token payload, step-by-step runtime target setup instructions, and the execution string structure parsed automatically for system operators:
+```text
+python stager.py <generated_token>
+
+```
+
+
+
+### Registered Stager Components
+
+* `GET /stager/agent` — Transmits the foundational modular codebase logic.
+* `GET /stager/config` — Generates isolated environment properties tied to the current deployment.
+* `GET /stager/certs` — Compiles and distributes target-bound mTLS identity components. at this point the token is consumed.
 ---
 
 # 🖥️ Tasking System
@@ -527,9 +580,8 @@ Example:
 
 * Launch reverse shell tasks from dashboard
 * Specify:
-
-  * Target agent
-  * Listening port
+* Target agent
+* Listening port
 
 ---
 
@@ -546,6 +598,7 @@ Example:
   "execute_at": "2026-04-15T10:00:00",
   "agent_group": "ops"
 }
+
 ```
 
 ---
@@ -563,6 +616,7 @@ Example:
   "recurring_at": "60min",
   "agent_group": "monitoring"
 }
+
 ```
 
 ### Scheduling Behavior
@@ -751,7 +805,6 @@ TENET/
 ├── database.py
 │
 ├── middleware/
-│   ├── __init__.py
 │   └── auth.py
 │
 ├── routes/
@@ -763,7 +816,8 @@ TENET/
 │   ├── plugins.py
 │   ├── dashboard.py
 │   ├── ai.py
-│   └── revshell.py
+│   ├── revshell.py
+│   └── stager.py
 │
 ├── services/
 │   ├── crypto.py
@@ -772,7 +826,8 @@ TENET/
 │   ├── geo.py
 │   ├── charts.py
 │   ├── alerts.py
-│   └── ai.py
+│   ├── ai.py
+│   └── stager_token.py
 │
 ├── keys/
 │   ├── ca.crt
@@ -787,6 +842,7 @@ TENET/
 ├── tools/
 ├── templates/
 └── static/
+
 ```
 
 ---
@@ -808,6 +864,7 @@ TENET/
 * Restrict plugin execution to trusted operators
 * Monitor reverse shell usage carefully
 * Secure Telegram bot tokens
+* **Stager tokens: one-time use, 60-min expiry, auto-cleanup hourly**
 
 ---
 
@@ -820,6 +877,7 @@ TENET/
 * Create Agent
 * Alerts & Logs (`/alerts`)
 * Analytics (`/info`)
+* Stager Token Generator
 
 ---
 

@@ -303,6 +303,71 @@ document.getElementById("createAgentForm").addEventListener("submit", async (e) 
         </div>`;
     }
 });
+/* ================= CREATE Stager ================= */
+
+document.getElementById("generateStagerTokenForm")
+    .addEventListener("submit", async function (e) {
+
+        e.preventDefault();
+
+        const messageBox = document.getElementById("generateStagerMessage");
+        const resultBox = document.getElementById("stagerTokenResult");
+
+        messageBox.innerHTML = "";
+        resultBox.style.display = "none";
+
+        const agentId = document.getElementById("stagerAgentId").value;
+        const validMinutes = document.getElementById("stagerValidMinutes").value;
+
+        try {
+
+            const response = await fetch("/stager/generate-token", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    valid_for_minutes: parseInt(validMinutes)
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                messageBox.innerHTML = `
+                    <div class="alert alert-danger">
+                        ${data.error || "Failed to generate token"}
+                    </div>
+                `;
+                return;
+            }
+
+            // Success message
+            messageBox.innerHTML = `
+                <div class="alert alert-success">
+                    Stager token generated successfully.
+                </div>
+            `;
+
+            // Show token + command
+            document.getElementById("generatedToken").textContent =
+                data.token;
+
+            document.getElementById("generatedStagerCommand").textContent =
+                data.stager_command;
+
+            resultBox.style.display = "block";
+
+        } catch (err) {
+
+            messageBox.innerHTML = `
+                <div class="alert alert-danger">
+                    ${err.message}
+                </div>
+            `;
+        }
+    });
 
 /* ================= CREATE RevShell ================= */
 document.getElementById("createRevShellForm").addEventListener("submit", async (e) => {

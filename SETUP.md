@@ -24,6 +24,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
+
 ```
 
 ---
@@ -34,12 +35,14 @@ Copy the example file:
 
 ```bash
 cp .env.example .env
+
 ```
 
 ### Generate a Fernet key
 
 ```bash
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
 ```
 
 ---
@@ -50,46 +53,49 @@ Create the database:
 
 ```bash
 sqlite3 database.db
+
 ```
 
 Run the following schema:
 
 ```sql
-
 CREATE TABLE "agents" (
-	"id"	TEXT,
-	"hostname"	TEXT,
-	"user"	TEXT,
-	"os"	TEXT,
-	"ip"	TEXT,
-	"last_seen"	TEXT,
-	"agent_group"	TEXT DEFAULT 'none',
-	PRIMARY KEY("id")
+    "id"   TEXT,
+    "hostname" TEXT,
+    "user" TEXT,
+    "os"   TEXT,
+    "ip"   TEXT,
+    "last_seen"    TEXT,
+    "agent_group"  TEXT DEFAULT 'none',
+    PRIMARY KEY("id")
 );
 
 CREATE TABLE "logs" (
-	"log_id"	TEXT,
-	"timestamp"	TEXT DEFAULT CURRENT_TIMESTAMP,
-	"role"	TEXT NOT NULL DEFAULT 'administrator',
-	"log_message"	TEXT NOT NULL,
-	"alert_level"	TEXT,
-	"task_id"	TEXT,
-	"sent"	INTEGER DEFAULT 0,
-	PRIMARY KEY("log_id")
+    "log_id"   TEXT,
+    "timestamp"    TEXT DEFAULT CURRENT_TIMESTAMP,
+    "role" TEXT NOT NULL DEFAULT 'administrator',
+    "log_message"  TEXT NOT NULL,
+    "alert_level"  TEXT,
+    "task_id"  TEXT,
+    "sent" INTEGER DEFAULT 0,
+    PRIMARY KEY("log_id")
 );
 
 CREATE TABLE "login_attempts" (
-	"ip"	TEXT,
-	"attempts"	INTEGER DEFAULT 0,
-	"last_attempt"	TIMESTAMP
+    "ip"   TEXT,
+    "attempts" INTEGER DEFAULT 0,
+    "last_attempt" TIMESTAMP
 );
 
 CREATE TABLE tasks (
     uuid TEXT PRIMARY KEY,
     agent_id TEXT,
     task_json TEXT,
-    output TEXT
-, executed_at TEXT, scheduled_at TEXT, recurring_every TEXT, status TEXT GENERATED ALWAYS AS (
+    output TEXT,
+    executed_at TEXT, 
+    scheduled_at TEXT, 
+    recurring_every TEXT, 
+    status TEXT GENERATED ALWAYS AS (
     CASE 
         WHEN executed_at IS NULL THEN 'pending'
 
@@ -97,7 +103,7 @@ CREATE TABLE tasks (
           OR output LIKE '%completed%' 
           OR output LIKE '%successful%' 
           OR output LIKE '%executed%' 
-	  OR output LIKE '%uploaded%'
+          OR output LIKE '%uploaded%'
           OR output LIKE '%downloaded%'  
         THEN 'success'
         
@@ -115,22 +121,36 @@ CREATE TABLE tasks (
 CREATE TABLE tokens (
     token TEXT PRIMARY KEY,
     agent_id TEXT,
-    expiry TEXT, username TEXT,
+    expiry TEXT, 
+    username TEXT,
     FOREIGN KEY(agent_id) REFERENCES agents(id)
 );
 
+CREATE TABLE IF NOT EXISTS stager_tokens (
+    token TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    used INTEGER DEFAULT 0,
+    FOREIGN KEY (agent_id) REFERENCES agents(id)
+);
+
+CREATE INDEX idx_stager_token_used ON stager_tokens(used, expires_at);
+
 CREATE TABLE "users" (
-	"username"	TEXT,
-	"password"	TEXT, role TEXT DEFAULT 'agent',
-	PRIMARY KEY("username")
+    "username" TEXT,
+    "password" TEXT, 
+    role TEXT DEFAULT 'agent',
+    PRIMARY KEY("username")
 );
 
 ```
 
+---
 
 # 👤 5. Create Admin User
 
-Create an Admin user via admin bootstrap registration
+Create an Admin user via the admin bootstrap registration panel at first startup.
 
 ---
 
@@ -144,6 +164,7 @@ cd keys
 
 openssl genrsa -out ca.key 4096
 openssl req -x509 -new -key ca.key -out ca.crt -days 365
+
 ```
 
 Create server certificate:
@@ -155,50 +176,70 @@ openssl req -new -key server.key -out server.csr
 openssl x509 -req -in server.csr \
     -CA ca.crt -CAkey ca.key -CAcreateserial \
     -out server.crt -days 365   
+
 ```
+
 Create Admin certificate:
 First, generate a 2048-bit RSA key for the admin and a Certificate Signing Request (CSR).
 
 ```bash
 openssl genrsa -out admin.key 2048
+
 ```
 
-Generate admin CSR (Common Name should typically be 'admin' or your username)
+Generate admin CSR (Common Name should typically be 'admin' or your username):
+
 ```bash
 openssl req -new -key admin.key -out admin.csr
+
 ```
 
-Sign the Admin Certificate with your CA
-Next, use your existing CA (ca.crt and ca.key) to sign the admin CSR and generate the certificate.
+Sign the Admin Certificate with your CA:
+Next, use your existing CA (`ca.crt` and `ca.key`) to sign the admin CSR and generate the certificate.
 
 ```bash
 openssl x509 -req -in admin.csr \
     -CA ca.crt -CAkey ca.key -CAcreateserial \
     -out admin.crt -days 365
+
 ```
 
-Export to .p12 (PKCS#12) Format
-Finally, bundle the admin.key, admin.crt, and the ca.crt into a single .p12 file.
+Export to `.p12` (PKCS#12) Format:
+Finally, bundle the `admin.key`, `admin.crt`, and the `ca.crt` into a single `.p12` file to import into your browser.
 
 ```bash
 openssl pkcs12 -export -out admin.p12 \
     -inkey admin.key -in admin.crt \
     -certfile ca.crt
+
 ```
 
 ---
 
 # 🌐 7. Configure Nginx
 
-Edit your Nginx config:
+Edit your Nginx config and paste your server configuration template:
 
-and copy the Nginx_Config file 
+```nginx
+ssl_client_certificate /path/to/keys/ca.crt;
+ssl_verify_client required;
+
+proxy_set_header X-Client-Cert-CN $ssl_client_s_dn_cn;
+proxy_set_header X-SSL-Verified $ssl_client_verify;
+proxy_set_header X-Client-Cert-DN $ssl_client_s_dn;
+
+server {
+    listen 80;
+    return 301 https://$host$request_uri;
+}
+
 ```
 
 Restart Nginx:
 
 ```bash
 sudo systemctl restart nginx
+
 ```
 
 ---
@@ -207,67 +248,71 @@ sudo systemctl restart nginx
 
 ```bash
 python app.py
+
 ```
+
+> 💡 **Background Engine:** On initialization, a daemon thread begins running automatically in the background within the application context. This worker executes every hour (`interval_seconds=3600`) to continuously purge expired or unused stager deployment tokens from the SQLite database.
 
 Flask must bind to:
 
-```
+```text
 127.0.0.1:5000
+
 ```
 
 ---
 
-# 🤖 9. Create Your First Agent
+# 🤖 9. Create Your First Agent & Generate Token
 
-1. Log into the dashboard
-2. Go to **Create Agent**
-3. Fill in:
+1. Log into the web dashboard interface.
+2. Navigate to **Create Agent** and provision profile settings (ID, Group, Version, Credentials).
+3. Select the target profile and invoke the **Stager Token Generator**.
+4. The backend will invoke the administrative route `POST /agents/admin/generate-stager` to:
+* Populate a cryptographically random token valid for exactly 60 minutes.
+* Format a quick-start bootstrap string structure for operational use.
 
-   * Agent ID
-   * Username / Password
-   * Optional group
 
-✔️ The system will automatically:
-
-* Generate agent certificate
-* Generate private key
-* Create agent file
 
 ---
 
-# 📦 10. Deploy Agent
+# 📦 10. Dynamic Deployment (Using the Stager)
 
-Copy to agent machine:
+Instead of manually dragging individual certificate bundles and configurations to your execution machines, copy only the initial lightweight footprint file (`stager.py`).
 
-* Agent file (`Agent{id}.py`)
-* `agent-{id}.crt`
-* `agent-{id}.key`
-* `ca.crt`
+Run the deployment hook on the target node:
+
+```bash
+python stager.py <YOUR_GENERATED_TOKEN>
+
+```
+
+### The Automatic Execution Workflow
+
+* The script calls endpoints via TLS (`/stager/agent`, `/stager/config`, `/stager/certs`).
+* Dynamically fetches matching keys, application modules, and unique client properties.
+* Saves configurations safely to disk (`chmod 600`).
+* Signals the control server via `POST /stager/consume-token` to burn the operational session.
+* Spawns the finalized application engine runtime loop to initiate encrypted mTLS beacons.
 
 ---
 
-# ✅ 11. Verify mTLS
+# ✅ 11. Verify mTLS Manually
 
-Test connection:
+Test manual certificate verification connections:
 
 ```bash
 curl https://your-server \
   --cert agent-001.crt \
   --key agent-001.key \
   --cacert ca.crt
+
 ```
 
 ---
 
 # ⚠️ Important Notes
 
-* Never expose Flask directly (only via Nginx)
-* Never commit:
-
-  * `.env`
-  * `ca.key`
-  * agent private keys
-* Ensure port 5000 is not publicly accessible
-
----
-
+* Never expose Flask directly (only proxy via Nginx).
+* Background daemon threads manage database-dependent cleanup routines; ensure application context bindings remain unaltered if adjusting lifecycle loops.
+* Active deployment tokens or active agent private keys.
+* Ensure port 5000 is blocked completely from public edge routing access.

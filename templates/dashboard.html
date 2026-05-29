@@ -83,6 +83,70 @@
         </div>
     </div>
 
+     <!-- ================= CREATE STAGER ================= -->
+
+    <div id="generate-stager-token" class="card mb-4">
+    <div class="card-body">
+        <div class="section-title mb-3">Generate Stager Token</div>
+
+        <form id="generateStagerTokenForm">
+            <div class="row g-2">
+
+                <div class="col-md-3">
+                    <input
+                        class="form-control"
+                        id="stagerAgentId"
+                        placeholder="Agent ID"
+                        required
+                    >
+                </div>
+
+                <div class="col-md-3">
+                    <input
+                        type="number"
+                        class="form-control"
+                        id="stagerValidMinutes"
+                        placeholder="Valid Minutes"
+                        value="60"
+                        min="1"
+                    >
+                </div>
+
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100">
+                        Generate
+                    </button>
+                </div>
+
+            </div>
+        </form>
+
+        <!-- Message output -->
+        <div id="generateStagerMessage" class="mt-3"></div>
+
+        <!-- Generated token output -->
+        <div id="stagerTokenResult" class="mt-3" style="display:none;">
+            <div class="alert alert-success">
+
+                <h6>Generated Stager Command</h6>
+
+                <div class="mb-2">
+                    <strong>Token:</strong>
+                    <code id="generatedToken"></code>
+                </div>
+
+                <div class="mb-2">
+                    <strong>Command:</strong>
+                         <pre class="mb-0">
+                             <code id="generatedStagerCommand"></code>
+                        </pre>
+                </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
      <!-- ================= CREATE RevShell ================= -->
        <div id="create-revshell" class="card mb-4"> <!--create-agent-->
         <div class="card-body">

@@ -11,7 +11,7 @@ def build_context(db) -> dict:
 
     alerts = db.execute("""
         SELECT timestamp, role, log_message, alert_level
-        FROM logs ORDER BY timestamp DESC LIMIT 10
+        FROM logs ORDER BY timestamp DESC LIMIT 30
     """).fetchall()
 
     tasks = db.execute("""

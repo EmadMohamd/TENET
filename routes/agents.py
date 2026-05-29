@@ -2,7 +2,6 @@ import uuid
 import subprocess
 import bcrypt
 from datetime import datetime, timezone
-from pathlib import Path
 import os
 import hashlib
 
@@ -12,6 +11,7 @@ from config import CERT_DIR, AGENT_ONLINE_TIMEOUT, API_KEY
 from database import get_db
 from middleware.auth import require_token
 from services.crypto import decrypt_data
+from services.stager_token import generate
 
 agents_bp = Blueprint("agents", __name__)
 
@@ -222,3 +222,40 @@ def download_agent(filename):
     if not os.path.exists(file_path):
         return jsonify({"error": "File not found"}), 404
     return send_file(file_path, as_attachment=True)
+
+
+@agents_bp.route("/admin/generate-stager", methods=["POST"])
+@require_token(role="admin")
+def generate_stager_command():
+    """
+    Generate stager command for deployment.
+    Operators use this to get the stager command.
+    """
+    if "username" not in session:
+        return redirect(url_for("auth.login"))
+
+    agent_id = request.json.get("agent_id")
+
+    try:
+        # Generate token (valid for 1 hour)
+        token = generate(agent_id, valid_for_minutes=60)
+
+        # Build command for operator
+        stager_command = f"python stager.py {token}"
+
+        return jsonify({
+            "status": "ok",
+            "agent_id": agent_id,
+            "token": token,
+            "stager_command": stager_command,
+            "instructions": [
+                "1. Download stager.py",
+                "2. Copy stager.py to target",
+                "3. Run the command below:",
+                f"   {stager_command}",
+                "4. Agent will download and execute"
+            ]
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
