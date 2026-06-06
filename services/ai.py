@@ -5,17 +5,17 @@ from database import get_db
 def build_context(db) -> dict:
     """Pulls a snapshot of agents, recent alerts, and recent tasks for the AI prompt."""
     agents = db.execute("""
-        SELECT id, hostname, user, ip, last_seen, agent_group
+        SELECT id, hostname, user, os, ip, last_seen, agent_group
         FROM agents LIMIT 20
     """).fetchall()
 
     alerts = db.execute("""
-        SELECT timestamp, role, log_message, alert_level
+        SELECT log_id, timestamp, role, log_message, alert_level
         FROM logs ORDER BY timestamp DESC LIMIT 30
     """).fetchall()
 
     tasks = db.execute("""
-        SELECT task_json, output, scheduled_at, recurring_every, status
+        SELECT uuid, task_json, output, executed_at, scheduled_at, recurring_every, status
         FROM tasks ORDER BY scheduled_at DESC LIMIT 40
     """).fetchall()
     return {

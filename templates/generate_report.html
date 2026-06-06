@@ -1,0 +1,415 @@
+```html
+<style>
+.report-fab {
+    position: fixed;
+    left: 15px;
+    bottom: 25px;
+    z-index: 9999;
+
+    width: 220px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    padding: 14px 18px;
+
+    border: none;
+    border-radius: 12px;
+
+    background: linear-gradient(
+        135deg,
+        #16a34a,
+        #22c55e
+    );
+
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 6px 20px rgba(0,0,0,.25),
+        0 0 18px rgba(34,197,94,.25);
+
+    transition: all .25s ease;
+}
+
+.report-fab:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 8px 24px rgba(0,0,0,.35),
+        0 0 24px rgba(34,197,94,.45);
+}
+
+.report-fab.loading {
+    opacity: .9;
+    cursor: wait;
+}
+
+.report-spinner {
+    width: 16px;
+    height: 16px;
+
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: white;
+
+    border-radius: 50%;
+
+    animation: report-spin 1s linear infinite;
+}
+
+@keyframes report-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+</style>
+
+<button
+    id="generateReportBtn"
+    type="button"
+    class="report-fab">
+    📊 Download Report
+</button>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    const btn =
+        document.getElementById("generateReportBtn");
+
+    if (!btn) {
+        console.error(
+            "Generate Report button not found"
+        );
+        return;
+    }
+
+    btn.addEventListener("click", async () => {
+
+        const originalHTML = btn.innerHTML;
+
+        btn.classList.add("loading");
+        btn.innerHTML =
+            '<span class="report-spinner"></span> Generating...';
+
+        try {
+
+            const response = await fetch("/ai/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+                body: JSON.stringify({
+                    message: `
+Generate a professional executive report.
+
+Include:
+- Executive Summary
+- Agent Performance
+- Task Success Rates
+- Alerts Analysis
+- Trend Analysis
+
+Use proper markdown headings,
+tables and bullet points.
+`
+                })
+            });
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error ||
+                    "Failed to generate report"
+                );
+            }
+
+            const markdown =
+                data.reply || "No report generated.";
+
+            const reportHTML =
+                marked.parse(markdown);
+
+            const reportContainer =
+                document.createElement("div");
+
+            reportContainer.innerHTML = `
+<style>
+
+body{
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #e5e7eb;
+}
+
+.report-wrapper{
+    padding: 40px;
+    color: #1e293b;
+    background-color: #f1f5f9;
+    margin: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.report-header{
+    margin-bottom: 30px;
+    border-bottom: 2px solid #3b82f6;
+    padding-bottom: 20px;
+}
+
+.report-title {
+    color: #3b82f6;
+    font-size: 50px;
+    font-weight: 700;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin-bottom: 12px;
+}
+
+.report-date{
+    color: #64748b;
+    font-size: 13px;
+}
+
+.report-content{
+    line-height: 1.7;
+    font-size: 14px;
+}
+
+.report-content h1{
+    color: #3b82f6;
+    margin-top: 30px;
+    border-bottom: 2px solid #60a5fa;
+    padding-bottom: 8px;
+}
+
+.report-content h2{
+    color: #1e40af;
+    margin-top: 25px;
+}
+
+.report-content h3{
+    color: #2563eb;
+}
+
+.report-content p{
+    margin: 10px 0;
+    color: #334155;
+}
+
+.report-content ul,
+.report-content ol{
+    margin-left: 20px;
+    color: #334155;
+}
+
+.report-content li {
+    margin: 8px 0;
+}
+
+.report-content table{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.report-content th{
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    padding: 12px;
+    border: none;
+    font-weight: 600;
+    text-align: left;
+}
+
+.report-content td{
+    padding: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+}
+
+.report-content tr:last-child td{
+    border-bottom: none;
+}
+
+.report-content tr:hover{
+    background-color: #f0f4f8;
+}
+
+.report-content pre{
+    background: #1e293b;
+    color: #cbd5f5;
+    padding: 15px;
+    border-radius: 8px;
+    overflow: auto;
+    border-left: 4px solid #3b82f6;
+    font-size: 13px;
+}
+
+.report-content code{
+    background: #e0e7ff;
+    color: #1e40af;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+}
+
+.report-content pre code{
+    background: none;
+    color: inherit;
+    padding: 0;
+}
+
+.report-content blockquote{
+    border-left: 4px solid #60a5fa;
+    padding-left: 15px;
+    color: #475569;
+    background-color: #f8fafc;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+.report-footer{
+    margin-top: 40px;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 15px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* ================= ALERTS/BADGES ================= */
+.alert-info {
+    background-color: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    color: #1e40af;
+    padding: 12px;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+.alert-success {
+    background-color: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    color: #15803d;
+    padding: 12px;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+.alert-warning {
+    background-color: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    color: #92400e;
+    padding: 12px;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+.alert-danger {
+    background-color: #fef2f2;
+    border-left: 4px solid #ef4444;
+    color: #991b1b;
+    padding: 12px;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+</style>
+
+<div class="report-wrapper">
+
+    <div class="report-header">
+
+        <div class="report-title">
+            TENET Agent Report
+        </div>
+
+        <div class="report-date">
+            Generated:
+            ${new Date().toLocaleString()}
+        </div>
+
+    </div>
+
+    <div class="report-content">
+        ${reportHTML}
+    </div>
+
+    <div class="report-footer">
+        Generated by TENET AI Reporting System
+    </div>
+
+</div>
+`;
+
+            const options = {
+
+                margin: 10,
+
+                filename:
+                    `TENET_Report_${
+                        new Date()
+                            .toISOString()
+                            .split("T")[0]
+                    }.pdf`,
+
+                image: {
+                    type: "jpeg",
+                    quality: 1
+                },
+
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true
+                },
+
+                jsPDF: {
+                    unit: "mm",
+                    format: "a4",
+                    orientation: "portrait"
+                },
+
+                pagebreak: {
+                    mode: [
+                        "avoid-all",
+                        "css",
+                        "legacy"
+                    ]
+                }
+            };
+
+            await html2pdf()
+                .set(options)
+                .from(reportContainer)
+                .save();
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                error.message ||
+                "Failed to generate report"
+            );
+
+        } finally {
+
+            btn.classList.remove("loading");
+            btn.innerHTML = originalHTML;
+        }
+    });
+});
+</script>
+```
