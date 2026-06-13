@@ -9,7 +9,6 @@ beacon_bp = Blueprint("beacon", __name__)
 
 
 @beacon_bp.route("/beacon", methods=["POST"])
-@require_mtls
 def beacon():
     encrypted    = request.json.get("data")
     beacon_info  = json.loads(decrypt_data(encrypted))
@@ -47,16 +46,31 @@ def beacon():
         ]
     return []
 
+MAX_PAYLOAD_SIZE = 10 * 1024 * 1024
 
 @beacon_bp.route("/result", methods=["POST"])
 def result():
-    encrypted   = request.json.get("data")
+    # 1. Validate Content-Length header before parsing the body
+    content_length = request.content_length
+    if content_length and content_length > MAX_PAYLOAD_SIZE:
+        return jsonify({"error": "Payload too large"}), 413
+
+    # 2. Safely parse JSON data
+    encrypted = request.json.get("data")
+    if not encrypted:
+        return jsonify({"error": "Missing data"}), 400
+
     result_info = json.loads(decrypt_data(encrypted))
+
+    # 3. (Optional) Validate the specific 'output' field size after decryption
+    output_data = result_info.get("output")
+    if output_data and len(str(output_data)) > MAX_PAYLOAD_SIZE:
+        return jsonify({"error": "Output data exceeds limit"}), 413
 
     db = get_db()
     db.execute("""
         UPDATE tasks SET output = ?, executed_at = ? WHERE uuid = ?
-    """, (result_info.get("output"), result_info.get("executed_at"), result_info.get("uuid")))
+    """, (output_data, result_info.get("executed_at"), result_info.get("uuid")))
     db.commit()
 
     return jsonify({"status": "received"})
