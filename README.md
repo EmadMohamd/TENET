@@ -712,24 +712,8 @@ The platform includes an advanced report generation system powered by the AI ass
 1. **Dashboard Button** - A persistent floating action button in the lower-right corner of the dashboard allows operators to initiate report generation at any time
 2. **AI Analysis** - The request is sent to the AI assistant, which analyzes current system metrics, agent data, task history, and alerts
 3. **PDF Compilation** - The analyzed data is formatted into a professional, styled PDF document with charts, tables, and summaries
-4. **Download** - The generated PDF is made available for immediate download to the operator's local system
+4. **Download** - The generated PDF is made available for immediate download to the operator's local system `TENET-Report-{timestamp}.pdf`
 
-### Access
-
-* **Endpoint:** `/info/generate-report` (POST)
-* **Access Control:** Requires valid admin session
-* **Response:** PDF file download with automatic naming: `TENET-Report-{timestamp}.pdf`
-
-### Report Features
-
-* Professional styling with TENET branding
-* Timestamped for audit trails
-* Color-coded alerts by severity
-* Embedded charts and statistics
-* Executive summary for quick briefings
-* Detailed metrics for in-depth analysis
-
----
 
 # 📁 File Management
 
