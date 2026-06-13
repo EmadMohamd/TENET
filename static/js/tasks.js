@@ -24,50 +24,106 @@ function deleteTask(uuid, btn) {
 }
 
 /* ================= UPDATE TASKS ================= */
+
 async function updateTasks() {
     try {
         const res = await fetch("/tasks-data");
         const tasks = await res.json();
+
         const tbody = document.getElementById("tasksBody");
         tbody.innerHTML = "";
 
         Object.entries(tasks).forEach(([uuid, t]) => {
-            const task = t.task;
+            const task = t.task || {};
             const output = (t.output || "").toLowerCase();
-            const row = document.createElement("tr");
-            const executedAt = t.executed_at ? (() => {
-                const date = new Date(t.executed_at.replace(" ", "T"));
-                 return isNaN(date.getTime()) ? "—" : date.toLocaleString(); })(): "—";
-            const scheduledAt = t.scheduled_at
-            const recurringEvery = t.recurring_every
-            const status = t.status
 
-            // Apply row class based on output
-            if (output.includes("error") || output.includes("failed") || output.includes("exception")) {
+            const row = document.createElement("tr");
+
+            const executedAt = t.executed_at
+                ? (() => {
+                    const date = new Date(t.executed_at.replace(" ", "T"));
+                    return isNaN(date.getTime())
+                        ? "—"
+                        : date.toLocaleString();
+                })()
+                : "—";
+
+            const scheduledAt = t.scheduled_at || "—";
+            const recurringEvery = t.recurring_every || "—";
+
+            // Normalize status
+            let status = (t.status || "pending").toLowerCase();
+
+            // Badge colors
+            let badgeClass = "bg-secondary";
+
+            switch (status) {
+                case "pending":
+                    badgeClass = "bg-warning";
+                    break;
+
+                case "completed":
+                case "success":
+                    badgeClass = "bg-success";
+                    break;
+
+                case "failed":
+                case "failure":
+                    badgeClass = "bg-danger";
+                    break;
+            }
+
+            // Store status for filtering
+            row.dataset.status = status;
+
+            // Row coloring
+            if (
+                output.includes("error") ||
+                output.includes("failed") ||
+                output.includes("exception")
+            ) {
                 row.classList.add("task-failed");
-            } else if (t.output && output !== "pending" || t.executed_at) {
+            } else if (
+                (t.output && output !== "pending") ||
+                t.executed_at
+            ) {
                 row.classList.add("task-completed");
             } else {
                 row.classList.add("task-pending");
             }
 
             row.innerHTML = `
-                <td>${t.agent_id}</td>
-                <td>${task.type}</td>
+                <td>${t.agent_id || ""}</td>
+                <td>${task.type || ""}</td>
                 <td>${task.command || task.url || task.path_to_file || ""}</td>
                 <td>${t.output || "Pending"}</td>
-                <td>${status}</td>
+
+                <td>
+                    <span class="badge ${badgeClass}">
+                        ${status.charAt(0).toUpperCase() + status.slice(1)}
+                    </span>
+                </td>
+
                 <td>${scheduledAt}</td>
                 <td>${executedAt}</td>
                 <td>${recurringEvery}</td>
                 <td>${uuid}</td>
-                <td><button class="btn btn-sm btn-delete" onclick="deleteTask('${uuid}', this)">Delete</button></td>
+
+                <td>
+                    <button
+                        class="btn btn-sm btn-delete"
+                        onclick="deleteTask('${uuid}', this)">
+                        Delete
+                    </button>
+                </td>
             `;
+
             tbody.appendChild(row);
         });
 
         // Re-apply filters after updating tasks
         applyFilters();
+
     } catch (e) {
         console.error(e);
     }

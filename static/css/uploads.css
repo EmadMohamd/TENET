@@ -26,3 +26,11 @@
 #filePreviewBody img {
     max-width: 100%;
 }
+
+.btn-delete {
+    color: #ef4444 !important;
+}
+
+.btn-delete:hover {
+    color: #f87171 !important;
+}

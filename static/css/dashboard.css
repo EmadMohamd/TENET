@@ -29,7 +29,7 @@ body {
     color: #60a5fa;
     margin: 0 30px 0 0;
     font-weight: 700;
-    font-size: 18px;
+    font-size: 25px;
     letter-spacing: 0.5px;
 }
 
@@ -121,6 +121,7 @@ body {
 .table {
     color: #e0e7ff;
     font-size: 14px;
+
 }
 
 .table thead th {
@@ -131,7 +132,10 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding: 14px;
-    border-radius: 8px 8px 0 0;
+    border-radius: 0px 0px 0 0;
+    text-align: center;
+    vertical-align: middle;
+    backdrop-filter: blur(8px);
 }
 
 .table tbody td {
@@ -140,6 +144,8 @@ body {
     vertical-align: middle;
     transition: all 0.2s ease;
     color: #cbd5f5;
+    text-align: center;
+    vertical-align: middle;
     background-color: rgba(10, 15, 30, 0.5);
 }
 
@@ -296,7 +302,7 @@ label {
 }
 
 .list-group-item:hover {
-    background-color: rgba(59, 130, 246, 0.12);
+    background-color: rgba(59, 130, 246, 0.12) !important;
     border-color: rgba(96, 165, 250, 0.25);
     transform: translateX(4px);
     color: #e0e7ff;

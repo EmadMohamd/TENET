@@ -1,53 +1,83 @@
-/* ================= GLOBAL ================= */
 body {
-    background: linear-gradient(135deg,#0f172a,#1e293b);
+    background: radial-gradient(circle at top, #0b1220 0%, #050814 100%);
     color: #e5e7eb;
-    font-family: Segoe UI, Arial;
+    font-family: "Segoe UI", Arial, sans-serif;
 }
 
-/* ================= LOGIN CONTAINER ================= */
+/* ================= LOGIN CONTAINER (GLASS STYLE) ================= */
 .container {
-    background-color: rgba(30,41,59,0.85) !important;
-    padding: 30px;
-    border-radius: 12px;
-    border: 1px solid #475569;
-    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    background: linear-gradient(
+        135deg,
+        rgba(15, 23, 42, 0.92),
+        rgba(10, 15, 30, 0.92)
+    ) !important;
+
+    padding: 32px;
+    border-radius: 16px;
+
+    border: 1px solid rgba(96, 165, 250, 0.25);
+
+    box-shadow:
+        0 20px 60px rgba(0,0,0,0.6),
+        inset 0 1px 1px rgba(96,165,250,0.08);
+
+    backdrop-filter: blur(12px);
 }
 
 /* ================= HEADINGS ================= */
 h2 {
     color: #cbd5f5 !important;
     text-align: center;
+    letter-spacing: 1px;
 }
 
+/* ================= TENET LOGO STYLE ================= */
+/* Add class="tenet-title" to your TENET text */
+.tenet-title {
+    font-family: "Orbitron", sans-serif;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+
+    background: linear-gradient(90deg, #60a5fa, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    text-shadow: 0 0 20px rgba(59,130,246,0.3);
+}
 /* ================= INPUTS ================= */
 .form-control {
-    background-color: #1e293b !important;
-    border: 1px solid #475569 !important;
+    background-color: rgba(15, 23, 42, 0.9) !important;
+    border: 1px solid rgba(96, 165, 250, 0.25) !important;
     color: #e5e7eb !important;
+    border-radius: 10px;
 }
+
 .form-control::placeholder {
-    color: #94a3b8 !important;
+    color: #64748b !important;
 }
+
 .form-control:focus {
-    background-color: #1e293b !important;
     border-color: #60a5fa !important;
-    color: #e5e7eb !important;
-    box-shadow: none;
+    box-shadow: 0 0 0 3px rgba(96,165,250,0.15);
 }
 
 /* ================= BUTTONS ================= */
 .btn-primary {
-    background-color: #2563eb !important;
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
     border: none !important;
+    box-shadow: 0 8px 25px rgba(59,130,246,0.25);
 }
+
 .btn-primary:hover {
-    background-color: #1d4ed8 !important;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(59,130,246,0.35);
 }
 
 /* ================= ALERT ================= */
 .alert {
-    background-color: #b91c1c !important;
-    color: #fff !important;
-    border: none !important;
+    background: rgba(185, 28, 28, 0.15) !important;
+    color: #fca5a5 !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
 }

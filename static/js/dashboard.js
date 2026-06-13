@@ -3,40 +3,48 @@ async function updateAgents() {
     try {
         const res = await fetch("/agents-data");
         const agents = await res.json();
+
         const tbody = document.getElementById("agentsBody");
         tbody.innerHTML = "";
-        document.getElementById("totalAgents").textContent = `Total : ${agents.length}`;
-        // ✅ SORT by last_seen (most recent first)
+
+        document.getElementById("totalAgents").textContent =
+            `Total : ${agents.length}`;
+
+        // Sort online first, then by last_seen
         agents.sort((a, b) => {
-            // Step 1: online status priority
             if (a.online !== b.online) {
-                return b.online - a.online; // true(1) comes before false(0)
+                return b.online - a.online;
             }
 
-            // Step 2: last_seen (descending)
             const timeA = a.last_seen || 0;
             const timeB = b.last_seen || 0;
+
             return timeB - timeA;
         });
+
         const last4agents = agents.slice(0, 4);
+
         last4agents.forEach(a => {
-            let id = a.id;
+            const id = a.id;
 
-            // status
-            let status = a.online ? "online" : "offline";
-            let badgeClass = a.online ? "status-online" : "status-offline";
+            // Bootstrap badges
+            const status = a.online ? "online" : "offline";
+            const badgeClass = a.online ? "bg-success" : "bg-danger";
 
-            let seconds = Math.floor(Date.now() / 1000 - a.last_seen);
+            const seconds = Math.floor(
+                Date.now() / 1000 - (a.last_seen || 0)
+            );
 
-            let row = document.createElement("tr");
+            const row = document.createElement("tr");
 
-            // store clean status for filtering
             row.dataset.status = status;
 
             row.innerHTML = `
-                <td><span class="badge ${badgeClass}">
-                    ${status.charAt(0).toUpperCase() + status.slice(1)}
-                </span></td>
+                <td>
+                    <span class="badge ${badgeClass}">
+                        ${status.charAt(0).toUpperCase() + status.slice(1)}
+                    </span>
+                </td>
                 <td>${id}</td>
                 <td>${a.hostname || ""}</td>
                 <td>${a.user || ""}</td>
@@ -48,14 +56,10 @@ async function updateAgents() {
             tbody.appendChild(row);
         });
 
-        // apply filters AFTER table is built
-
-
     } catch (e) {
         console.error(e);
     }
 }
-
 
 /* ================= TASKS ================= */
 async function updateTasks() {

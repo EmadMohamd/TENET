@@ -1,219 +1,274 @@
 /* ================= GLOBAL ================= */
+
 body {
-    background: linear-gradient(135deg,#0f172a,#1e293b);
-    color: #e5e7eb;
-    font-family: Segoe UI, Arial;
-    margin: 0;
-    padding: 0;
+background: linear-gradient(135deg, #0f172a, #1e293b);
+color: #e5e7eb;
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+margin: 0;
+padding: 0;
+overflow-x: hidden;
 }
 
 /* ================= TOP NAVBAR ================= */
+
 .sidebar {
-    height: 60px;              /* top navbar height */
-    width: 100%;               /* full width */
-    position: fixed;
-    top: 0;
-    left: 0;
-    display: flex;             /* horizontal layout */
-    align-items: center;       /* vertical centering */
-    justify-content: flex-start;
-    background-color: #020617 !important;
-    border-bottom: 1px solid #334155;
-    padding: 0 20px;
-    z-index: 1000;
+height: 60px;
+width: 100%;
+position: fixed;
+top: 0;
+left: 0;
+display: flex;
+align-items: center;
+justify-content: flex-start;
+background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
+border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+padding: 0 20px;
+z-index: 1000;
+backdrop-filter: blur(10px);
+box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar h4 {
-    color: #cbd5f5;
-    margin: 0 20px 0 0;        /* spacing to the right */
+color: #60a5fa;
+margin: 0 30px 0 0;
+font-weight: 700;
+font-size: 25px;
+letter-spacing: 0.5px;
 }
 
 .sidebar a {
-    padding: 0 15px;
-    color: #cbd5f5 !important;
-    text-decoration: none;
-    font-size: 15px;
-    line-height: 60px;         /* vertically center text */
+padding: 0 16px;
+color: #cbd5f5 !important;
+text-decoration: none;
+font-size: 14px;
+line-height: 60px;
+transition: all 0.3s ease;
+position: relative;
 }
 
 .sidebar a:hover {
-    background-color: #1e293b !important;
+color: #60a5fa !important;
+background-color: rgba(96, 165, 250, 0.1) !important;
+}
+
+.sidebar a:after {
+content: '';
+position: absolute;
+bottom: 0;
+left: 16px;
+right: 16px;
+height: 2px;
+background: linear-gradient(90deg, #3b82f6, #60a5fa);
+transform: scaleX(0);
+transition: transform 0.3s ease;
+}
+
+.sidebar a:hover:after {
+transform: scaleX(1);
 }
 
 /* ================= MAIN CONTENT ================= */
+
 .main {
-    margin-top: 60px;          /* leave space for navbar */
-    padding: 30px;
+margin-top: 60px;
+padding: 30px;
+min-height: calc(100vh - 60px);
+}
+
+/* ================= SECTION TITLES ================= */
+
+.section-title {
+font-size: 19px;
+font-weight: 600;
+background: linear-gradient(90deg, #60a5fa, #3b82f6);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+margin-bottom: 12px;
 }
 
 /* ================= CARDS ================= */
+
 .card {
-    background-color: rgba(30,41,59,0.85) !important;
-    border: 1px solid rgba(148,163,184,0.15) !important;
-    backdrop-filter: blur(6px);
-    border-radius: 12px;
+background: linear-gradient(
+135deg,
+rgba(15, 23, 42, 0.95) 0%,
+rgba(10, 15, 30, 0.95) 100%
+);
+border: 1px solid rgba(96, 165, 250, 0.25) !important;
+backdrop-filter: blur(10px);
+border-radius: 16px;
+box-shadow:
+0 8px 32px rgba(0, 0, 0, 0.3),
+inset 0 1px 1px rgba(96, 165, 250, 0.1);
+overflow: hidden;
+transition: all 0.3s ease;
 }
 
-/* ================= Dropdown ================= */
-
-/* Container styling for dropdown and chart */
-#agentDropdown {
-    background-color: #1e293b; /* same as plot_bgcolor */
-    color: #e5e7eb;           /* light text */
-    border: 1px solid #334155; /* subtle border */
-    padding: 8px 12px;
-    font-size: 16px;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    width: 200px;              /* fixed width */
-    outline: none;
-    transition: all 0.2s ease;
+.card:hover {
+border-color: rgba(96, 165, 250, 0.4) !important;
+box-shadow:
+0 12px 48px rgba(59, 130, 246, 0.2),
+inset 0 1px 1px rgba(96, 165, 250, 0.1);
 }
 
-/* Hover effect */
-#agentDropdown:hover {
-    border-color: #64748b;
-    background-color: #273449;
-}
-#agentDropdown {
-    height: 40px; /* fixed height */
-    margin-bottom: 0.5rem;
-    flex-shrink: 0; /* prevents shrinking */
-
-}#agentDropdown {
-    height: 40px; /* fixed height */
-    margin-bottom: 0.5rem;
-    flex-shrink: 0; /* prevents shrinking */
+.card-body {
+padding: 20px;
 }
 
-/* Focus effect */
-#agentDropdown:focus {
-    border-color: #3b82f6; /* blue highlight on focus */
-    box-shadow: 0 0 5px #3b82f6;
-}
+/* ================= DASHBOARD GRID ================= */
 
-/* Optional: smooth transition for options dropdown */
-#agentDropdown option {
-    background-color: #1e293b;
-    color: #e5e7eb;
-}
-
-/* ================= Cards ================= */
-/* Make all cards in the same row the same height */
-/* Container for dashboard cards */
-/* Make the main container fill the screen */
-/* Make main container fill viewport */
-.main {
-    width: 100vw;
-    height: 100vh;
-    margin: 0;
-    padding: 0.5rem;
-}
-
-/* 2x2 grid */
 .dashboard-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* 2 columns */
-    grid-template-rows: 1fr 1fr;    /* 2 rows */
-    gap: 1rem;
-    width: 100%;
-
+display: grid;
+grid-template-columns: 1fr 1fr;
+grid-template-rows: 1fr 1fr;
+gap: 1rem;
+width: 100%;
 }
 
-/* Each grid item stretches */
 .grid-item {
-    display: flex;
+display: flex;
 }
 
-/* Card fills grid cell */
 .grid-item > .card {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+flex: 1;
+display: flex;
+flex-direction: column;
 }
 
-/* Card body fills card */
 .grid-item > .card > .card-body {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+flex: 1;
+display: flex;
+flex-direction: column;
 }
 
-/* Charts/maps fill card body */
-.map, .barchart, .piechart {
-    flex: 1;
-    min-height: 0; /* important for proper stretching */
-}
-/* ================= Pie Charts ================= */
+/* ================= CHARTS & MAPS ================= */
 
-/* Pie charts fill remaining space in card-body */
+.map,
+.barchart,
 .piechart {
-    flex: 1 1 auto;   /* grow to fill available vertical space */
-    min-height: 0;    /* allows flex shrink correctly */
+flex: 1;
+min-height: 0;
 }
+
+.piechart {
+flex: 1 1 auto;
+}
+
+/* ================= DROPDOWN ================= */
+
+#agentDropdown {
+background-color: rgba(10, 15, 30, 0.8);
+border: 1px solid rgba(96, 165, 250, 0.25);
+color: #cbd5f5;
+border-radius: 10px;
+padding: 10px 14px;
+width: 220px;
+height: 42px;
+margin-bottom: 12px;
+transition: all 0.3s ease;
+}
+
+#agentDropdown:hover {
+border-color: rgba(96, 165, 250, 0.45);
+}
+
+#agentDropdown:focus {
+border-color: #60a5fa;
+box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+outline: none;
+}
+
+#agentDropdown option {
+background: #0f172a;
+color: #e5e7eb;
+}
+
 /* ================= INPUTS ================= */
+
 .form-control,
 .form-select {
-    background-color: #1e293b !important;
-    border: 1px solid #475569 !important;
-    color: #e5e7eb !important;
+background-color: rgba(10, 15, 30, 0.8);
+border: 1px solid rgba(96, 165, 250, 0.25);
+color: #cbd5f5;
+border-radius: 10px;
 }
-.form-control::placeholder,
-.form-select option {
-    color: #94a3b8 !important;
+
+.form-control::placeholder {
+color: #64748b;
 }
+
 .form-control:focus,
 .form-select:focus {
-    background-color: #1e293b !important;
-    border-color: #60a5fa !important;
-    color: #e5e7eb !important;
-    box-shadow: none;
+background-color: rgba(10, 15, 30, 0.95);
+border-color: #60a5fa;
+color: #cbd5f5;
+box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
 }
 
 /* ================= BUTTONS ================= */
+
 .btn-primary {
-    background-color: #2563eb !important;
-    border: none !important;
-}
-.btn-primary:hover {
-    background-color: #1d4ed8 !important;
+background: linear-gradient(135deg, #3b82f6, #2563eb);
+border: 1px solid rgba(96, 165, 250, 0.3);
+box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
 }
 
+.btn-primary:hover {
+background: linear-gradient(135deg, #60a5fa, #3b82f6);
+box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+}
 
 /* ================= BADGES ================= */
+
 .badge {
-    padding: 6px 10px !important;
-    font-weight: 500 !important;
+padding: 6px 10px;
+font-weight: 600;
+border-radius: 8px;
 }
+
 .status-online {
-    background-color: #22c55e !important;
+background: linear-gradient(135deg, #10b981, #059669) !important;
 }
+
 .status-offline {
-    background-color: #ef4444 !important;
+background: linear-gradient(135deg, #ef4444, #dc2626) !important;
 }
-.section-title {
-    font-size: 1.2rem !important;
-    font-weight: 600 !important;
-    color: #cbd5f5 !important;
-}
+
 .disabled-link {
-    pointer-events: none;
-    opacity: 0.5;
+pointer-events: none;
+opacity: 0.5;
 }
 
 /* ================= RESPONSIVE ================= */
+
 @media (max-width: 768px) {
-    .sidebar {
-        flex-direction: column;
-        height: auto;
-        padding: 10px;
-    }
-    .sidebar a {
-        line-height: normal;
-        padding: 8px 0;
-    }
-    .main {
-        margin-top: auto; /* content flows below navbar */
-    }
+
+```
+.sidebar {
+    flex-direction: column;
+    height: auto;
+    padding: 10px;
 }
 
+.sidebar a {
+    line-height: normal;
+    padding: 8px 0;
+}
+
+.main {
+    padding: 15px;
+    margin-top: 100px;
+}
+
+.dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+}
+
+#agentDropdown {
+    width: 100%;
+}
+```
+
+}

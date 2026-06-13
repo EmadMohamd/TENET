@@ -4,79 +4,104 @@
     <meta charset="UTF-8">
     <title>All Tasks</title>
     <link rel="icon" type="image/png" href="/static/images/icon.png">
-    <link href="{{ url_for('static', filename='css/dashboard.css') }}" rel="stylesheet">
+
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/tasks.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/dashboard.css') }}" rel="stylesheet">
 </head>
 <body>
 
-<!-- ================= NavBar ================= -->
-<div class="sidebar">
-    <h4>TENET</h4>
-    <a href="/dashboard">Dashboard</a>
-    <a href="/info">Info</a>
-    <a href="/alerts">Alerts & Logging</a>
-    <a href="/agents">Live Agents</a>
-    <a href="/tasks">Tasks</a>
-    <a href="/uploads">Uploaded Files</a>
-    <a href="/plugins">Plugins</a>
-    <a href="/chat">AI Assistant</a>
-    <a href="{{ url_for('auth.logout') }}">Logout</a>
-</div>
+    <!-- ================= NavBar ================= -->
+    <div class="sidebar">
+        <h4>TENET</h4>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/info">Info</a>
+        <a href="/alerts">Alerts & Logging</a>
+        <a href="/agents">Live Agents</a>
+        <a href="/tasks">Tasks</a>
+        <a href="/uploads">Uploaded Files</a>
+        <a href="/plugins">Plugins</a>
+        <a href="/chat">AI Assistant</a>
+        <a href="{{ url_for('auth.logout') }}">Logout</a>
+    </div>
 
-<!-- ================= MAIN ================= -->
-<div class="main">
-    <div class="card mb-4">
-        <div class="card-body">
-            <div class="section-title mb-3">All Tasks</div>
+    <!-- ================= MAIN ================= -->
+    <div class="main">
+        <div class="card mb-4">
+            <div class="card-body">
 
-            <!-- ===== Filters ===== -->
-            <div class="filters-wrapper">
-                <input type="text" class="form-control filter-input" id="filterAgent" placeholder="Agent ID">
-                <input type="text" class="form-control filter-input" id="filterUUID" placeholder="Task UUID">
-                <input type="text" class="form-control filter-input" id="filterOutput" placeholder="Output">
-                <select class="form-select filter-input" id="filterType">
-                    <option value="">All Types</option>
-                    <option value="shell">Shell</option>
-                    <option value="download">Download</option>
-                    <option value="upload">Upload</option>
-                    <option value="sleep">Sleep</option>
-                </select>
-                <select class="form-select filter-input" id="filterStatus">
-                    <option value="">All Status</option>
-                    <option value="completed">Completed</option>
-                    <option value="pending">Pending</option>
-                    <option value="failed">Failed</option>
-                </select>
+                <div class="section-title mb-3">All Tasks</div>
+
+                <!-- ================= Filters ================= -->
+                <div class="filters-wrapper">
+                    <input type="text"
+                           class="form-control filter-input"
+                           id="filterAgent"
+                           placeholder="Agent ID">
+
+                    <input type="text"
+                           class="form-control filter-input"
+                           id="filterUUID"
+                           placeholder="Task UUID">
+
+                    <input type="text"
+                           class="form-control filter-input"
+                           id="filterOutput"
+                           placeholder="Output">
+
+                    <select class="form-select filter-input" id="filterType">
+                        <option value="">All Types</option>
+                        <option value="shell">Shell</option>
+                        <option value="download">Download</option>
+                        <option value="upload">Upload</option>
+                        <option value="sleep">Sleep</option>
+                    </select>
+
+                    <select class="form-select filter-input" id="filterStatus">
+                        <option value="">All Status</option>
+                        <option value="completed">Completed</option>
+                        <option value="pending">Pending</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+
+                <!-- ================= Tasks Table ================= -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered" id="tasksTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Agent ID</th>
+                                <th>Task Type</th>
+                                <th>Command / URL / Path</th>
+                                <th>Output</th>
+                                <th>Status</th>
+                                <th>Scheduled At</th>
+                                <th>Executed At</th>
+                                <th>Recurring every (mins)</th>
+                                <th>Task ID</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="tasksBody">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
             </div>
-
-            <!-- ===== Tasks Table ===== -->
-            <table class="table table-hover table-bordered" id="tasksTable">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Agent ID</th>
-                        <th>Task Type</th>
-                        <th>Command / URL / Path</th>
-                        <th>Output</th>
-                        <th>Status</th>
-                        <th>Scheduled At</th>
-                        <th>Executed At</th>
-                        <th>Recurring every (mins)</th>
-                        <th>Task ID</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="tasksBody">
-                    <!-- Populated via JS -->
-                </tbody>
-            </table>
         </div>
     </div>
-</div>
 
-<script>
-    window.API_KEY = "{{ api_key }}";
-</script>
-<script src="{{ url_for('static', filename='js/tasks.js') }}"></script>
+    <!-- ================= Scripts ================= -->
+    <script>
+        window.API_KEY = "{{ api_key }}";
+    </script>
+
+    <script src="{{ url_for('static', filename='js/tasks.js') }}"></script>
+
 </body>
 </html>
