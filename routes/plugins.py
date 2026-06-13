@@ -14,7 +14,6 @@ plugins_bp = Blueprint("plugins", __name__)
 
 
 @plugins_bp.route("/plugins/")
-@require_token(role="admin")
 def plugins_list():
     if "username" not in session:
         return redirect(url_for("auth.login"))
@@ -23,7 +22,6 @@ def plugins_list():
 
 
 @plugins_bp.route("/plugins/<filename>")
-@require_token(role="admin")
 def serve_plugin(filename):
     if not filename.endswith(".py"):
         return "Invalid file", 400
