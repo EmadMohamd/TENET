@@ -69,6 +69,7 @@ def create_app() -> Flask:
 
     @app.before_request
     def check_access():
+        path = request.path
         db = get_db()
 
         # Always allow static files
@@ -78,6 +79,63 @@ def create_app() -> Flask:
         # PUBLIC EXEMPTIONS (ADD STAGER HERE)
         if request.path.startswith("/stager/"):
             return
+
+        if request.path.startswith("/upload"):
+            return
+
+        if request.path.startswith("/tools/"):
+            return
+
+        if path.startswith("/plugins/"):
+            # Check if user has valid session (admin accessing /plugins/)
+            if "username" in session:
+                return  # Allow session-based access
+
+            # Check if agent has valid TOKEN (downloading /plugins/<filename>)
+            token = request.headers.get("TOKEN")
+            if token:
+                token_exists = db.execute(
+                    "SELECT agent_id FROM tokens WHERE token = ?",
+                    (token,)
+                ).fetchone()
+                if token_exists:
+                    #print(f"[AUTH] Valid TOKEN for {path}", flush=True)
+                    return  # Allow token-based access
+
+            # Neither session nor token
+            #print(f"[AUTH] No session or TOKEN for {path}", flush=True)
+            if request.is_json:
+                return {"error": "Missing TOKEN or session"}, 401
+            return redirect("/login")
+
+        agent_paths = [
+            "/stager/",
+            "/beacon",
+            "/result",
+            "/plugins/",
+            "/api/agent_update",
+        ]
+
+        if any(path.startswith(p) for p in agent_paths):
+            # Require TOKEN header for agent endpoints
+            token = request.headers.get("TOKEN")
+            if not token:
+                #print(f"[AUTH] No TOKEN for {path}", flush=True)
+                return {"error": "Missing TOKEN"}, 401
+
+            # Verify token exists in database
+            db = get_db()
+            token_exists = db.execute(
+                "SELECT agent_id FROM tokens WHERE token = ?",
+                (token,)
+            ).fetchone()
+
+            if not token_exists:
+                #print(f"[AUTH] Invalid TOKEN for {path}", flush=True)
+                return {"error": "Invalid TOKEN"}, 401
+
+            #print(f"[AUTH] Valid TOKEN for {path}", flush=True)
+            return  # Allow request
 
         # Public endpoints
         allowed_endpoints = [
