@@ -1,4 +1,4 @@
-# 🛰️ TENET: Remote Agent Control Server
+# 🛰️ TENET: Remote Agent Command & Control Server
 
 A **Flask-based command-and-control style server** for managing remote agents, dispatching tasks, collecting results, and monitoring activity in real time.
 
@@ -17,6 +17,7 @@ A **Flask-based command-and-control style server** for managing remote agents, d
 * [Agent Stager](#-agent-stager)
 * [Tasking System](#-tasking-system)
 * [Monitoring & Analytics](#-monitoring--analytics)
+* [Report Generation](#-report-generation)
 * [Plugin System](#-plugin-system)
 * [AI Security Operations Assistant](#-ai-security-operations-analytics-assistant)
 * [Database](#️-database-sqlite)
@@ -372,8 +373,6 @@ Administrators are also issued browser certificates (`.p12`).
 * Valid login credentials
 * Valid admin certificate
 
-
-
 ---
 
 ## 🤖 Agent Authentication
@@ -496,7 +495,6 @@ The platform utilizes a lightweight bootstrap design to provision and initialize
 * **Target Configuration:** Environmental metadata, specific endpoints, and dynamically mapped credentials.
 * **mTLS Key Material:** Cryptographic unique keypairs and trusted root authorities necessary to negotiate downstream mTLS handshakes.
 
-
 3. **Initialization & Cleanup:** Upon successfully downloading and verifying the components, the files are securely written to disk. The stager then informs the server to flag the token as spent, permanently revoking its validity before executing the main agent process to begin active beacon lifecycle communication.
 
 ### Admin Command Generation Interface
@@ -513,20 +511,18 @@ Administrators can dynamically provision specific stager execution hooks via the
 
 ```
 
-
 * **Response Output:** Returns structured workflow data including the unique token payload, step-by-step runtime target setup instructions, and the execution string structure parsed automatically for system operators:
 ```text
 python stager.py <generated_token>
 
 ```
 
-
-
 ### Registered Stager Components
 
 * `GET /stager/agent` — Transmits the foundational modular codebase logic.
 * `GET /stager/config` — Generates isolated environment properties tied to the current deployment.
 * `GET /stager/certs` — Compiles and distributes target-bound mTLS identity components. at this point the token is consumed.
+
 ---
 
 # 🖥️ Tasking System
@@ -694,6 +690,44 @@ Displays IP-based agent geolocation.
 
 * Online vs offline distribution
 * Success rate per agent
+
+---
+
+# 📋 Report Generation
+
+## 🎯 AI-Powered PDF Reports
+
+The platform includes an advanced report generation system powered by the AI assistant. A floating action button in the dashboard allows operators to generate comprehensive PDF reports on-demand.
+
+### Report Contents
+
+* **Executive Summary** - High-level overview of system status and key metrics
+* **Agent Performance** - Individual agent statistics, uptime, and reliability metrics
+* **Task Success Rates** - Analysis of task execution performance, success/failure distribution, and execution trends
+* **Alerts Analysis** - Summary of critical alerts, security events, and anomalies detected
+* **Trend Analysis** - Historical trends in agent behavior, task performance, and system health
+
+### How It Works
+
+1. **Dashboard Button** - A persistent floating action button in the lower-right corner of the dashboard allows operators to initiate report generation at any time
+2. **AI Analysis** - The request is sent to the AI assistant, which analyzes current system metrics, agent data, task history, and alerts
+3. **PDF Compilation** - The analyzed data is formatted into a professional, styled PDF document with charts, tables, and summaries
+4. **Download** - The generated PDF is made available for immediate download to the operator's local system
+
+### Access
+
+* **Endpoint:** `/info/generate-report` (POST)
+* **Access Control:** Requires valid admin session
+* **Response:** PDF file download with automatic naming: `TENET-Report-{timestamp}.pdf`
+
+### Report Features
+
+* Professional styling with TENET branding
+* Timestamped for audit trails
+* Color-coded alerts by severity
+* Embedded charts and statistics
+* Executive summary for quick briefings
+* Detailed metrics for in-depth analysis
 
 ---
 
@@ -877,6 +911,7 @@ TENET/
 * Create Agent
 * Alerts & Logs (`/alerts`)
 * Analytics (`/info`)
+* Report Generation (`/generate-report`)
 * Stager Token Generator
 
 ---
@@ -897,65 +932,18 @@ TENET/
 
 # 💡 Suggested Enhancements
 
-Here are additional improvements worth considering:
-
-## 🔐 Security Enhancements
-
-* Certificate Revocation List (CRL) support
-* OCSP validation
-* Per-agent API scopes/permissions
-* Hardware-backed key storage (TPM/YubiKey)
-* Signed plugin verification
-* Audit trail immutability
-
----
-
 ## 📈 Scalability Improvements
 
 * PostgreSQL support
 * Redis-backed task queue
 * Horizontal worker scaling
 * Multi-server agent routing
-* WebSocket/SSE live dashboards
 
 ---
 
 ## 🤖 Agent Improvements
 
 * Agent self-healing/recovery
-* Agent integrity verification
 * Offline task caching
-* Adaptive beacon intervals
-* Bandwidth-aware update delivery
 
 ---
-
-## 🧠 AI / Analytics Enhancements
-
-* Threat scoring system
-* MITRE ATT&CK mapping
-* Behavioral baselining
-* Automated incident timelines
-* AI-generated remediation suggestions
-
----
-
-## 🛠️ Operational Improvements
-
-* Docker Compose deployment
-* Kubernetes support
-* CI/CD pipelines
-* Backup/restore tooling
-* One-click certificate rotation
-* Admin activity auditing
-
----
-
-## 📊 Dashboard Enhancements
-
-* Live WebSocket updates
-* Dark/light theme toggle
-* Advanced filtering/search
-* Exportable reports
-* Real-time notification center
-* Interactive task timelines
