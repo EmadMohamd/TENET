@@ -8,7 +8,7 @@ from flask_limiter.util import get_remote_address
 
 import database
 from database import get_db
-from config import SECRET_KEY, UPLOAD_FOLDER, PLUGINS_DIR, PORT
+from config import FERNET_KEY, UPLOAD_FOLDER, PLUGINS_DIR, PORT
 from services.scheduler import restart_recurring_tasks
 from services.stager_token import start_periodic_cleanup
 
@@ -56,7 +56,7 @@ werk_log.propagate = False
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    app.secret_key = SECRET_KEY
+    app.secret_key = FERNET_KEY
     app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
     app.config["TOOLS_FOLDER"] = "tools"
 
@@ -99,11 +99,9 @@ def create_app() -> Flask:
                     (token,)
                 ).fetchone()
                 if token_exists:
-                    #print(f"[AUTH] Valid TOKEN for {path}", flush=True)
                     return  # Allow token-based access
 
             # Neither session nor token
-            #print(f"[AUTH] No session or TOKEN for {path}", flush=True)
             if request.is_json:
                 return {"error": "Missing TOKEN or session"}, 401
             return redirect("/login")
@@ -120,7 +118,6 @@ def create_app() -> Flask:
             # Require TOKEN header for agent endpoints
             token = request.headers.get("TOKEN")
             if not token:
-                #print(f"[AUTH] No TOKEN for {path}", flush=True)
                 return {"error": "Missing TOKEN"}, 401
 
             # Verify token exists in database
@@ -131,10 +128,8 @@ def create_app() -> Flask:
             ).fetchone()
 
             if not token_exists:
-                #print(f"[AUTH] Invalid TOKEN for {path}", flush=True)
                 return {"error": "Invalid TOKEN"}, 401
 
-            #print(f"[AUTH] Valid TOKEN for {path}", flush=True)
             return  # Allow request
 
         # Public endpoints

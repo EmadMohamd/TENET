@@ -12,8 +12,7 @@ PORT     = 5000
 
 # ── Security ──────────────────────────────────────────────────────────────────
 API_KEY    = os.getenv("API_KEY")
-SECRET_KEY = os.getenv("SECRET_KEY", "8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U=").encode()
-FERNET_KEY = os.getenv("FERNET_KEY", "8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U=")
+FERNET_KEY = os.getenv("FERNET_KEY")
 cipher     = Fernet(FERNET_KEY)
 
 # ── Telegram ──────────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import hashlib
 
 from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for, send_file
 
-from config import CERT_DIR, AGENT_ONLINE_TIMEOUT, API_KEY
+from config import CERT_DIR, AGENT_ONLINE_TIMEOUT, API_KEY , FERNET_KEY
 from database import get_db
 from middleware.auth import require_token
 from services.crypto import decrypt_data
@@ -123,7 +123,7 @@ def agent_create():
         file.write(f"password = \"{password}\"\n")
         file.write(f"AGENT_ID = \"{id_number}\"\n")
         file.write(f"AGENT_GROUP = \"{agent_group}\"\n")
-
+        file.write(f"FERNET_KEY = \"{FERNET_KEY}\"\n")
     # ── Generate mTLS certificate ─────────────────────────────────────────────
     key = CERT_DIR / f"agent{id_number}.key"
     csr = CERT_DIR / f"agent{id_number}.csr"

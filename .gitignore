@@ -23,3 +23,5 @@ venv/
 *.crt
 *.key
 *.crl
+
+stress_test.py
