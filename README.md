@@ -145,35 +145,7 @@ Agents can automatically update themselves through periodic version checks.
 
 ### Update Flow
 
-```text
-Agent (v1.0.0)                    Server
-
-    │                               │
-    ├─ POST /api/agent_update ─────>│
-    │  (version: 1.0.0)             │
-    │                               │
-    │<─ {update: false} ────────────┤
-    │                               │
-    │ [continue beaconing]          │
-    │                               │
-    │ [2 hours later]               │
-    │                               │
-    ├─ POST /api/agent_update ─────>│
-    │  (version: 1.0.0)             │
-    │                               │
-    │<─ {update: true,             ─┤
-    │    download_url: "...",       │
-    │    sha256: "abc123..."}       │
-    │                               │
-    ├─ GET /api/agent_update/... ──>│
-    │                               │
-    │<────── [binary file] ─────────┤
-    │                               │
-    ├─ Verify hash ✓                │
-    │ Launch updater                │
-    │ Restart with v1.0.1           │
-
-```
+![Agent Update Flow](static/images/agent_update_flow.gif)
 
 ### Update Features
 
@@ -197,26 +169,7 @@ Agents without valid CA-signed certificates are rejected before requests ever re
 
 ## 🧱 mTLS Handshake Flow
 
-```text
-Agent                                    Nginx (Server)
-
-  |                                           |
-  |──── ClientHello ─────────────────────────►|
-  |◄─── ServerHello + server.crt ────────────|
-  |◄─── CertificateRequest ──────────────────| ← mTLS
-  |──── agent-001.crt ───────────────────────►|
-  |──── CertificateVerify ───────────────────►|
-  |                                           |
-  |       TLS session established             |
-  |──── POST /beacon ────────────────────────►|
-  |                                           |
-  |                         Nginx forwards verified
-  |                         requests to Flask with:
-  |
-  |                         X-Client-Cert-CN
-  |                         X-SSL-Verified
-
-```
+![mTLS Handshake Flow](static/images/mtls_flow.gif)
 
 Nginx performs certificate verification and forwards verified identity headers to Flask.
 
