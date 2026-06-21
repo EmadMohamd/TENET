@@ -10,9 +10,11 @@ filename = "linpeas_small.sh"
 now = datetime.now()
 output = "Privesc_output" + now.strftime("%Y-%m-%d_%H-%M-%S") + ".txt"
 BASE_DIR = Path.cwd()
-CLIENT_CRT = BASE_DIR / "keys" / "agent1.crt"
-CLIENT_KEY = BASE_DIR / "keys" / "agent1.key"
-CA_CERT = BASE_DIR / "keys" / "ca.crt"
+keys_dir = BASE_DIR / "keys"
+
+CLIENT_CRT = next(keys_dir.glob("[!c][!a]*.crt"))
+CLIENT_KEY = next(keys_dir.glob("*.key"))
+CA_CERT = keys_dir / "ca.crt"
 
 def run():
     try:

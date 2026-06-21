@@ -5,9 +5,12 @@ from pathlib import Path
 SERVER_URL = "https://127.0.0.1"
 BASE_DIR = Path.cwd()
 UPLOAD_ENDPOINT = "/upload"
-CLIENT_CRT = BASE_DIR / "keys" / "agent1.crt"
-CLIENT_KEY = BASE_DIR / "keys" / "agent1.key"
-CA_CERT = BASE_DIR / "keys" / "ca.crt"
+keys_dir = BASE_DIR / "keys"
+
+CLIENT_CRT = next(keys_dir.glob("[!c][!a]*.crt"))
+CLIENT_KEY = next(keys_dir.glob("*.key"))
+CA_CERT = keys_dir / "ca.crt"
+
 now = datetime.now()
 # Format: YYYY-MM-DD_HH-MM-SS
 filename = now.strftime("%Y-%m-%d_%H-%M-%S") + ".png"
