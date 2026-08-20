@@ -32,7 +32,7 @@ import requests
 # ==========================================
 # 1. ENDPOINTS & GLOBAL CONSTANTS
 # ==========================================
-SERVER_URL = "https://127.0.0.1"
+SERVER_URL = "https://c2.local"
 LOGIN_ENDPOINT = "/login"
 BEACON_ENDPOINT = "/beacon"
 RESULT_ENDPOINT = "/result"

