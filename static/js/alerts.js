@@ -6,15 +6,19 @@ async function updateAlerts() {
         const tbody = document.getElementById("alertsBody");
         tbody.innerHTML = "";
 
-        Object.entries(alerts).forEach(([key, t]) => {
-            const timestamp = t.timestamp
+        // Convert object entries to an array and sort by timestamp (newest first)
+        const sortedAlerts = Object.entries(alerts).sort(([, a], [, b]) => {
+            return new Date(b.timestamp) - new Date(a.timestamp);
+        });
+
+        sortedAlerts.forEach(([key, t]) => {
+            const timestamp = t.timestamp;
             const log_id = t.log_id;
             const log_message = (t.log_message || "").toLowerCase();
             const role = t.role;
             const alert_level = (t.alert_level || "").toLowerCase();
             const task_id = t.task_id;
             const row = document.createElement("tr");
-
 
             if (
                 alert_level.includes("alert") ||
@@ -24,9 +28,6 @@ async function updateAlerts() {
             } else {
                 row.classList.add("task-info");
             }
-            console.log(alert_level);
-
-
 
             row.innerHTML = `
                 <td>${log_id}</td>
@@ -39,8 +40,6 @@ async function updateAlerts() {
 
             tbody.appendChild(row);
         });
-
-
 
     } catch (e) {
         console.error(e);
