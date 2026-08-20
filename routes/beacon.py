@@ -16,7 +16,7 @@ def beacon():
 
     db = get_db()
     db.execute("""
-        INSERT INTO agents (id, hostname, user, os, ip, last_seen)
+        INSERT INTO agents (id, hostname, user, os, ip, last_seen,agent_group)
         VALUES (?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(id) DO UPDATE SET
             hostname  = excluded.hostname,
@@ -30,6 +30,7 @@ def beacon():
         beacon_info.get("user"),
         beacon_info.get("os"),
         request.remote_addr,
+        beacon_info.get("agent_group"),
     ))
     db.commit()
 
