@@ -156,67 +156,113 @@ Create an Admin user via the admin bootstrap registration panel at first startup
 
 # 🔐 6. Generate mTLS Certificates
 
-Create CA:
+**THE CERTIFICATE IS BUILT ON c2.local CHANGE IT TO YOUR REGISTERED DOMAIN NAME**
 
 ```bash
-mkdir -p keys
-cd keys
+#!/bin/bash
+set -e
+```
 
-openssl genrsa -out ca.key 4096
-openssl req -x509 -new -key ca.key -out ca.crt -days 365
+##  GENERATE ROOT CA
+
+### Generate CA Private Key
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out ca.key
+```
+
+### Generate Root CA Certificate with critical CA extensions
+```bash
+openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \
+  -out ca.crt \
+  -subj "/C=US/ST=CA/O=TENET/CN=C2 Local Root CA" \
+  -addext "basicConstraints=critical,CA:TRUE" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign"```
 
 ```
 
-Create server certificate:
+##  GENERATE SERVER CERTIFICATE
 
+### Generate Server Private Key
 ```bash
-openssl genrsa -out server.key 2048
-openssl req -new -key server.key -out server.csr
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out server.key
+```
+### Generate Server CSR
+```bash
+openssl req -new -key server.key -out server.csr \
+    -subj "/C=US/ST=CA/O=TENET/CN=c2.local"
+```
 
+### Create Server Extension Config File
+```
+cat << 'EOF' > server_ext.cnf
+authorityKeyIdentifier = keyid,issuer
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = c2.local
+IP.1 = 127.0.0.1
+EOF
+```
+
+### Sign Server Certificate using CA and Extension Config
+```bash
 openssl x509 -req -in server.csr \
     -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -out server.crt -days 365   
-
+    -out server.crt -days 365 -sha256 \
+    -extfile server_ext.cnf
 ```
 
-Create Admin certificate:
-First, generate a 2048-bit RSA key for the admin and a Certificate Signing Request (CSR).
 
-```bash
-openssl genrsa -out admin.key 2048
 
+##  GENERATE ADMIN CLIENT CERTIFICATE & PKCS#12
+
+### Generate Admin Private Key
+```openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out admin.key```
+
+### Generate Admin CSR
+``` bash
+openssl req -new -key admin.key -out admin.csr \
+    -subj "/C=US/ST=CA/O=TENET/CN=admin"
 ```
 
-Generate admin CSR (Common Name should typically be 'admin' or your username):
-
-```bash
-openssl req -new -key admin.key -out admin.csr
-
+### Create Admin Extension Config File (for mTLS clientAuth)
+```
+cat << 'EOF' > admin_ext.cnf
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature
+extendedKeyUsage = clientAuth
+EOF
 ```
 
-Sign the Admin Certificate with your CA:
-Next, use your existing CA (`ca.crt` and `ca.key`) to sign the admin CSR and generate the certificate.
-
+### Sign Admin Certificate using CA
 ```bash
 openssl x509 -req -in admin.csr \
     -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -out admin.crt -days 365
-
+    -out admin.crt -days 365 -sha256 \
+    -extfile admin_ext.cnf
 ```
 
-Export to `.p12` (PKCS#12) Format:
-Finally, bundle the `admin.key`, `admin.crt`, and the `ca.crt` into a single `.p12` file to import into your browser.
+### Clean up temporary extension file
+```rm -f admin_ext.cnf```
 
+### Export to PKCS#12 (.p12) bundle for browser/client import
 ```bash
 openssl pkcs12 -export -out admin.p12 \
     -inkey admin.key -in admin.crt \
     -certfile ca.crt
-
 ```
 
+### TEST AND RELOAD NGINX
+
+```
+nginx -t && systemctl reload nginx
+```
 ---
 
-# 🌐 7. Configure Nginx
+# 🌐  Configure Nginx
 
 Edit your Nginx config and paste your server configuration template:
 

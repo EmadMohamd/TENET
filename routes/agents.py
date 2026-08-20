@@ -107,6 +107,8 @@ def agent_create():
         "INSERT INTO USERS (username, password, role) VALUES (?, ?, ?)",
         (username, hashed, "agent")
     )
+
+
     db.commit()
 
     # ── Write agent python file ──────────────────────────────────────────────────────
@@ -128,32 +130,49 @@ def agent_create():
     key = CERT_DIR / f"agent{id_number}.key"
     csr = CERT_DIR / f"agent{id_number}.csr"
     crt = CERT_DIR / f"agent{id_number}.crt"
+    ext = CERT_DIR / f"agent{id_number}.ext"
 
-    subprocess.run([
-        "openssl", "genpkey",
-        "-algorithm", "RSA",
-        "-pkeyopt", "rsa_keygen_bits:2048",
-        "-out", str(key)
-    ], check=True)
+    ext_content = (
+        "basicConstraints=CA:FALSE\n"
+        "keyUsage=critical,digitalSignature\n"
+        "extendedKeyUsage=clientAuth\n"
+        f"subjectAltName=DNS:{id_number},DNS:c2.local\n"
+    )
+    ext.write_text(ext_content)
 
-    subprocess.run([
-        "openssl", "req", "-new",
-        "-key", str(key),
-        "-out", str(csr),
-        "-subj", f"/C=US/ST=CA/O=TENET/CN={id_number}",
-        "-addext", f"subjectAltName=DNS:{id_number}"
-    ], check=True)
+    try:
+        # 1. Generate Key
+        subprocess.run([
+            "openssl", "genpkey",
+            "-algorithm", "RSA",
+            "-pkeyopt", "rsa_keygen_bits:2048",
+            "-out", str(key)
+        ], check=True)
 
-    subprocess.run([
-        "openssl", "x509", "-req",
-        "-in",  str(csr),
-        "-CA",  str(CERT_DIR / "ca.crt"),
-        "-CAkey", str(CERT_DIR / "ca.key"),
-        "-CAcreateserial",
-        "-out", str(crt),
-        "-days", "365",
-        "-sha256"
-    ], check=True)
+        # 2. Generate CSR
+        subprocess.run([
+            "openssl", "req", "-new",
+            "-key", str(key),
+            "-out", str(csr),
+            "-subj", f"/C=US/ST=CA/O=TENET/CN={id_number}"
+        ], check=True)
+
+        # 3. Sign Certificate with CA and pass -extfile
+        subprocess.run([
+            "openssl", "x509", "-req",
+            "-in", str(csr),
+            "-CA", str(CERT_DIR / "ca.crt"),
+            "-CAkey", str(CERT_DIR / "ca.key"),
+            "-CAcreateserial",
+            "-out", str(crt),
+            "-days", "365",
+            "-sha256",
+            "-extfile", str(ext)
+        ], check=True)
+
+    finally:
+        # Always clean up the temporary extension file
+        ext.unlink(missing_ok=True)
 
     # ── Audit log ─────────────────────────────────────────────────────────────
     db.execute(
